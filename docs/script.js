@@ -1341,7 +1341,8 @@ async function loadWeather() {
 }
 
 async function loadDCAlerts() {
-  const el = document.getElementById('alertsValue');
+  const el      = document.getElementById('alertsValue');
+  const tooltip = document.getElementById('alertsTooltip');
   if (!el) return;
   try {
     const d = await fetch('https://api.weather.gov/alerts/active?area=DC', {
@@ -1351,10 +1352,15 @@ async function loadDCAlerts() {
     if (alerts.length === 0) {
       el.textContent = '✓ None active';
       el.classList.add('intel-ok');
+      if (tooltip) tooltip.textContent = 'No active weather alerts for Washington DC.';
     } else {
       const top = alerts[0].properties;
       el.textContent = `⚠ ${top.event}`;
       el.classList.add(top.severity === 'Extreme' || top.severity === 'Severe' ? 'intel-warn-red' : 'intel-warn-yellow');
+      if (tooltip) {
+        const desc = top.description?.split('\n\n')[0] || top.headline || top.event;
+        tooltip.textContent = desc.length > 300 ? desc.slice(0, 297) + '…' : desc;
+      }
     }
   } catch(e) { el.textContent = '—'; }
 }
@@ -1363,12 +1369,27 @@ async function loadNews() {
   const el = document.getElementById('newsValue');
   if (!el) return;
   try {
-    const feed = encodeURIComponent('https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml');
-    const d = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${feed}&count=8`).then(r => r.json());
-    if (d.status !== 'ok' || !d.items?.length) throw new Error('bad feed');
-    el.textContent = d.items.map(i => i.title).join('  ✦  ');
+    // Fetch RSS via a CORS proxy and parse it ourselves — no third-party service needed
+    const rssUrl = 'https://feeds.bbci.co.uk/news/world/us_and_canada/rss.xml';
+    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(rssUrl)}`;
+    const xml = await fetch(proxyUrl).then(r => r.text());
+    const doc = new DOMParser().parseFromString(xml, 'text/xml');
+    const items = [...doc.querySelectorAll('item')].slice(0, 10);
+    if (!items.length) throw new Error('no items');
+    el.textContent = items.map(i => i.querySelector('title')?.textContent || '').filter(Boolean).join('  ✦  ');
   } catch(e) {
-    el.textContent = 'NEWS FEED UNAVAILABLE';
+    // fallback to AP News via different proxy
+    try {
+      const rssUrl2 = 'https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml';
+      const proxyUrl2 = `https://api.allorigins.win/raw?url=${encodeURIComponent(rssUrl2)}`;
+      const xml2 = await fetch(proxyUrl2).then(r => r.text());
+      const doc2 = new DOMParser().parseFromString(xml2, 'text/xml');
+      const items2 = [...doc2.querySelectorAll('item')].slice(0, 10);
+      if (!items2.length) throw new Error('no items');
+      el.textContent = items2.map(i => i.querySelector('title')?.textContent || '').filter(Boolean).join('  ✦  ');
+    } catch(e2) {
+      el.textContent = 'NEWS FEED UNAVAILABLE — CHECK BACK LATER';
+    }
   }
 }
 
