@@ -219,22 +219,27 @@ let _macroGoals = (() => {
   catch { return null; }
 })();
 
-function toggleMacroSettings() {
-  const panel = document.getElementById('macroSettingsPanel');
-  if (!panel) return;
-  const open = panel.classList.toggle('macro-settings-open');
-  if (open) {
-    const g = _macroGoals || (_baseMacros ? {
-      cal: _baseMacros.goal_calories, pro: _baseMacros.goal_protein,
-      carb: _baseMacros.goal_carbs,  fat: _baseMacros.goal_fat
-    } : {});
-    document.getElementById('gsCalories').value = g.cal  || '';
-    document.getElementById('gsProtein').value  = g.pro  || '';
-    document.getElementById('gsCarbs').value    = g.carb || '';
-    document.getElementById('gsFat').value      = g.fat  || '';
-    setTimeout(() => document.getElementById('gsCalories')?.focus(), 50);
-  }
+function openMacroModal() {
+  const modal = document.getElementById('macroModal');
+  if (!modal) return;
+  const g = _macroGoals || (_baseMacros ? {
+    cal: _baseMacros.goal_calories, pro: _baseMacros.goal_protein,
+    carb: _baseMacros.goal_carbs,  fat: _baseMacros.goal_fat
+  } : {});
+  document.getElementById('gsCalories').value = g.cal  || '';
+  document.getElementById('gsProtein').value  = g.pro  || '';
+  document.getElementById('gsCarbs').value    = g.carb || '';
+  document.getElementById('gsFat').value      = g.fat  || '';
+  modal.classList.add('modal-open');
+  setTimeout(() => document.getElementById('gsCalories')?.focus(), 100);
 }
+
+function closeMacroModal(event) {
+  if (event && event.target !== document.getElementById('macroModal')) return;
+  document.getElementById('macroModal')?.classList.remove('modal-open');
+}
+
+function toggleMacroSettings() { openMacroModal(); }
 
 function saveMacroSettings() {
   const goals = {
@@ -250,7 +255,7 @@ function saveMacroSettings() {
        .collection('settings').doc('macros')
        .set(goals).catch(console.error);
   }
-  document.getElementById('macroSettingsPanel')?.classList.remove('macro-settings-open');
+  document.getElementById('macroModal')?.classList.remove('modal-open');
   renderMacrosFromState();
 }
 
@@ -696,3 +701,6 @@ function escHtml(str) {
 }
 
 document.addEventListener('DOMContentLoaded', init);
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeMacroModal();
+});

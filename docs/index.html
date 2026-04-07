@@ -89,30 +89,8 @@
       <div class="card-header">
         <span class="card-icon">🍖</span>
         <h2 class="card-title">FUEL RESERVES</h2>
-        <button class="macro-settings-btn" onclick="toggleMacroSettings()" title="Edit macro goals">⚙ GOALS</button>
+        <button class="macro-settings-btn" onclick="openMacroModal()" title="Edit macro goals">⚙</button>
         <span class="card-badge">MACROS</span>
-      </div>
-      <div class="macro-settings-panel" id="macroSettingsPanel">
-        <div class="macro-settings-title">▸ SET DAILY MACRO GOALS</div>
-        <div class="macro-settings-row">
-          <div class="macro-settings-group">
-            <label class="macro-settings-label">CALORIES</label>
-            <input class="macro-settings-input" id="gsCalories" type="number" placeholder="2000" min="0" />
-          </div>
-          <div class="macro-settings-group">
-            <label class="macro-settings-label">PROTEIN (g)</label>
-            <input class="macro-settings-input" id="gsProtein" type="number" placeholder="150" min="0" />
-          </div>
-          <div class="macro-settings-group">
-            <label class="macro-settings-label">CARBS (g)</label>
-            <input class="macro-settings-input" id="gsCarbs" type="number" placeholder="200" min="0" />
-          </div>
-          <div class="macro-settings-group">
-            <label class="macro-settings-label">FAT (g)</label>
-            <input class="macro-settings-input" id="gsFat" type="number" placeholder="65" min="0" />
-          </div>
-        </div>
-        <button class="macro-settings-save" onclick="saveMacroSettings()">▶ SAVE GOALS</button>
       </div>
       <div class="card-body" id="macrosBody">
         <div class="loading-block">LOADING INTEL...</div>
@@ -132,6 +110,40 @@
     </section>
 
   </main>
+
+  <!-- MACRO GOALS MODAL -->
+  <div class="modal-overlay" id="macroModal" onclick="closeMacroModal(event)">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span class="modal-title">⚙ MACRO GOALS</span>
+        <button class="modal-close" onclick="closeMacroModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-sub">Set your daily targets. Saved permanently across all days.</p>
+        <div class="modal-row">
+          <div class="modal-field">
+            <label class="modal-label">CALORIES</label>
+            <input class="modal-input" id="gsCalories" type="number" placeholder="2000" min="0" />
+          </div>
+          <div class="modal-field">
+            <label class="modal-label">PROTEIN (g)</label>
+            <input class="modal-input" id="gsProtein" type="number" placeholder="150" min="0" />
+          </div>
+        </div>
+        <div class="modal-row">
+          <div class="modal-field">
+            <label class="modal-label">CARBS (g)</label>
+            <input class="modal-input" id="gsCarbs" type="number" placeholder="200" min="0" />
+          </div>
+          <div class="modal-field">
+            <label class="modal-label">FAT (g)</label>
+            <input class="modal-input" id="gsFat" type="number" placeholder="65" min="0" />
+          </div>
+        </div>
+        <button class="modal-save" onclick="saveMacroSettings()">▶ SAVE GOALS</button>
+      </div>
+    </div>
+  </div>
 
   <!-- FOOTER -->
   <footer class="site-footer">
