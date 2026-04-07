@@ -789,6 +789,8 @@ function openWorkoutPlanModal() {
   if (!PLAN_DAYS.includes(_planEditDay)) _planEditDay = 'Mon';
   try { renderPlanModalDay(_planEditDay); } catch(e) { console.error('renderPlanModalDay error', e); }
   modal.classList.add('modal-open');
+  // Auto-focus the paste textarea so user can immediately Cmd+V
+  setTimeout(() => document.getElementById('pasteTextarea')?.focus(), 80);
 }
 
 function closeWorkoutPlanModal(event) {
@@ -818,14 +820,14 @@ function renderPlanModalDay(day) {
               id="pastePanelToggle">📋 PASTE ROUTINE</button>
     </div>
     <div class="paste-panel${pasteWasOpen ? ' paste-panel-open' : ''}" id="pastePanel">
-      <p class="paste-hint">Copy your routine from Claude, then click <b>PASTE FROM CLIPBOARD</b> below — or just click in the box and press <b>Cmd+V</b>.</p>
-      <div class="paste-clip-row">
-        <button class="paste-clip-btn" onclick="pasteFromClipboard()">📋 PASTE FROM CLIPBOARD</button>
-        <button class="paste-clear-btn" onclick="document.getElementById('pasteTextarea').value='';document.getElementById('pasteStatus').textContent=''">✕ CLEAR</button>
-      </div>
-      <textarea class="paste-textarea" id="pasteTextarea" placeholder="Paste your Claude routine here (Cmd+V)…" rows="8"></textarea>
+      <p class="paste-hint">① Copy your routine from Claude &nbsp;②&nbsp; Click the box below &nbsp;③&nbsp; Press <b>Cmd+V</b> — auto-imports instantly</p>
+      <textarea class="paste-textarea" id="pasteTextarea"
+        placeholder="▶ CLICK HERE then press Cmd+V to paste your routine…"
+        rows="9"
+        onpaste="schedulePasteImport()"></textarea>
       <div class="paste-action-row">
-        <button class="paste-import-btn" onclick="parseAndImportRoutine()">⚡ PARSE &amp; IMPORT ALL DAYS</button>
+        <button class="paste-import-btn" onclick="parseAndImportRoutine()">⚡ IMPORT</button>
+        <button class="paste-clear-btn" onclick="document.getElementById('pasteTextarea').value='';document.getElementById('pasteStatus').textContent=''">✕ CLEAR</button>
         <span class="paste-status" id="pasteStatus"></span>
       </div>
     </div>
@@ -848,7 +850,12 @@ function togglePastePanel() {
   if (!panel) return;
   const open = panel.classList.toggle('paste-panel-open');
   if (btn) btn.classList.toggle('paste-toggle-btn-active', open);
-  if (open) document.getElementById('pasteTextarea')?.focus();
+  if (open) setTimeout(() => document.getElementById('pasteTextarea')?.focus(), 50);
+}
+
+// Called by onpaste — textarea value isn't populated yet at paste time, so wait a tick
+function schedulePasteImport() {
+  setTimeout(() => parseAndImportRoutine(), 100);
 }
 
 async function pasteFromClipboard() {
@@ -864,9 +871,7 @@ async function pasteFromClipboard() {
     ta.focus();
     if (statusEl) { statusEl.textContent = '✓ Pasted! Hit PARSE & IMPORT.'; statusEl.className = 'paste-status paste-status-ok'; }
   } catch(e) {
-    // Clipboard API blocked — focus the textarea so user can Cmd+V manually
     ta.focus();
-    ta.select();
     if (statusEl) { statusEl.textContent = '⚠ Click the box & press Cmd+V'; statusEl.className = 'paste-status paste-status-err'; }
   }
 }

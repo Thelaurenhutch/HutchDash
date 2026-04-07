@@ -1657,23 +1657,8 @@ body::before {
   margin: 0;
 }
 .paste-hint b { color: var(--red); }
-.paste-clip-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-.paste-clip-btn {
-  font-family: 'Press Start 2P', monospace;
-  font-size: 0.4rem;
-  padding: 7px 12px;
-  border: 2px solid var(--gold);
-  background: var(--gold);
-  color: var(--brown);
-  cursor: pointer;
-  letter-spacing: 0.04em;
-  transition: background 0.15s, color 0.15s;
-}
-.paste-clip-btn:hover { background: var(--brown); color: var(--cream); border-color: var(--brown); }
+.paste-clip-row { display: none; } /* removed */
+.paste-clip-btn { display: none; } /* removed */
 .paste-clear-btn {
   font-family: 'Press Start 2P', monospace;
   font-size: 0.38rem;
@@ -1687,17 +1672,18 @@ body::before {
 .paste-clear-btn:hover { background: var(--brown); color: var(--cream); }
 .paste-textarea {
   font-family: 'Courier New', monospace;
-  font-size: 0.72rem;
-  padding: 8px 10px;
-  border: 2px solid var(--brown);
+  font-size: 0.75rem;
+  padding: 10px 12px;
+  border: 3px solid var(--red);
   background: var(--cream);
   color: var(--brown);
   resize: vertical;
   width: 100%;
   box-sizing: border-box;
   line-height: 1.5;
+  cursor: text;
 }
-.paste-textarea:focus { outline: none; border-color: var(--red); }
+.paste-textarea:focus { outline: none; border-color: var(--brown); box-shadow: 0 0 0 2px var(--gold); }
 .paste-action-row {
   display: flex;
   align-items: center;
