@@ -818,8 +818,8 @@ function renderPlanModalDay(day) {
               id="pastePanelToggle">📋 PASTE ROUTINE</button>
     </div>
     <div class="paste-panel${pasteWasOpen ? ' paste-panel-open' : ''}" id="pastePanel">
-      <p class="paste-hint">Paste your full weekly routine (all days). Days will be auto-detected.<br>
-        <span class="paste-hint-ex">e.g. "Monday – Upper Body<br>Bench Press 4x8<br>Rows 3x10<br>…<br>Tuesday – Lower Body…"</span>
+      <p class="paste-hint">Paste your full weekly routine below — works with Claude's format.<br>
+        <span class="paste-hint-ex">Monday – Push + Core<br>DB push press&nbsp;&nbsp;3 × 10<br>Band lateral raise&nbsp;&nbsp;3 × 15<br>Tuesday or Wednesday – Lower Body…</span>
       </p>
       <textarea class="paste-textarea" id="pasteTextarea" placeholder="Paste routine here…" rows="9"></textarea>
       <div class="paste-action-row">
@@ -853,95 +853,127 @@ function togglePastePanel() {
 function parseAndImportRoutine() {
   const text = (document.getElementById('pasteTextarea')?.value || '').trim();
   const statusEl = document.getElementById('pasteStatus');
-  if (!text) { if (statusEl) { statusEl.textContent = '⚠ Nothing pasted.'; statusEl.className = 'paste-status paste-status-err'; } return; }
+  if (!text) {
+    if (statusEl) { statusEl.textContent = '⚠ Nothing pasted.'; statusEl.className = 'paste-status paste-status-err'; }
+    return;
+  }
 
-  const DAY_MAP = {
+  // Maps first day-word found → canonical short day
+  const DAY_WORD_MAP = {
     monday: 'Mon', tuesday: 'Tue', wednesday: 'Wed', thursday: 'Thu',
     friday: 'Fri', saturday: 'Sat', sunday: 'Sun',
-    mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu',
-    fri: 'Fri', sat: 'Sat', sun: 'Sun',
-    // Day 1-7 → Mon-Sun
-    'day 1': 'Mon', 'day 2': 'Tue', 'day 3': 'Wed', 'day 4': 'Thu',
-    'day 5': 'Fri', 'day 6': 'Sat', 'day 7': 'Sun',
   };
+  // Ordered so longer keys match first
+  const DAY_WORDS_RE = /\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i;
 
-  // Regex to detect a day-header line
-  const DAY_HEADER_RE = /^(?:#+\s*)?(?:day\s*[1-7]|monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\b/i;
+  // A line is a day header if it STARTS with a day word (possibly preceded by # or **)
+  const DAY_HEADER_RE = /^(?:[#*]+\s*)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i;
 
-  // Regex to extract sets × reps from an exercise line
-  // Matches: 4x8, 4×8, 4 x 8, 4 sets x 8 reps, 4 sets of 8, (4x8)
-  const SETS_REPS_RE = /(\d+)\s*(?:sets?\s*(?:x|of|×)\s*)?(?:x|×)\s*(\d+)(?:\s*reps?)?/i;
-  const SETS_ONLY_RE = /(\d+)\s*sets?/i;
-  const REPS_ONLY_RE = /(\d+)\s*reps?/i;
+  // Sets × reps — inline on same line as exercise name
+  // Matches: 3 × 10, 3x10, 3 x 10, 3 sets x 10, 3 × 10/side, 3 × 45s, 3 × max
+  const INLINE_SETS_REPS_RE = /(\d+)\s*[×x]\s*([\w/]+)/i;
 
-  // Lines that indicate a rest day
-  const REST_RE = /^\s*(?:rest|off|active\s+recovery|cardio\s+only|rest\s*\/?\s*cardio)\s*[:\-–—]?\s*$/i;
+  // A standalone sets×reps line (just the number pattern, nothing else meaningful)
+  // e.g. "3 × 10" or "3 × 10/side" or "3 × 45s" or "4 × 10"
+  const STANDALONE_SR_RE = /^(\d+)\s*[×x]\s*([\w/]+)\s*$/i;
+
+  // Equipment-only lines to skip
+  const EQUIPMENT_RE = /^(dumbbells?|bands?|bodyweight|barbell|cables?|machine|kettlebell|resistance band|peloton)\s*(\+\s*(dumbbells?|bands?|bodyweight|barbell|cables?|machine|kettlebell|resistance band|peloton))*$/i;
+
+  // Lines to skip outright
+  const SKIP_RE = /^(~|\d+[-–]\d+\s*min|optional|finish\s+with|note[s:]|tip[s:]|rest|off\b|active recovery|this week|equipment)/i;
 
   const lines = text.split(/\r?\n/);
-  const parsed = {}; // { Mon: { label, exercises } }
+  const parsed = {};
   let currentDay = null;
-  let currentLabel = '';
+  let pendingExerciseName = null; // holds exercise name while we wait for the sets×reps line
 
-  for (const rawLine of lines) {
-    const line = rawLine.trim();
-    if (!line) continue;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) { pendingExerciseName = null; continue; }
 
-    // Strip common list prefixes: -, *, •, numbers, etc.
-    const stripped = line.replace(/^[-*•·]\s*/, '').replace(/^\d+[.)]\s*/, '');
+    // Strip markdown/list prefixes
+    const stripped = line.replace(/^[-*•·#+]+\s*/, '').trim();
 
-    // Check for day header
+    // ── Day header? ──
     if (DAY_HEADER_RE.test(stripped)) {
-      // Extract day key
-      let dayKey = null;
-      for (const [k, v] of Object.entries(DAY_MAP)) {
-        const re = new RegExp('\\b' + k.replace(' ', '\\s+') + '\\b', 'i');
-        if (re.test(stripped)) { dayKey = v; break; }
+      // Flush any pending exercise (exercise with no sets/reps found)
+      if (pendingExerciseName && currentDay) {
+        parsed[currentDay].exercises.push({ name: pendingExerciseName, sets: 0, reps: 0, notes: '' });
+        pendingExerciseName = null;
       }
-      if (!dayKey) continue;
 
-      // Extract label: everything after the day word + separator
-      const labelMatch = stripped.replace(/^(?:day\s*\d+\s*)?(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)/i, '')
-                                  .replace(/^[\s:\-–—]+/, '').trim();
+      const dayMatch = stripped.match(DAY_WORD_MAP ? DAY_WORDS_RE : DAY_WORDS_RE);
+      if (!dayMatch) continue;
+      const dayKey = DAY_WORD_MAP[dayMatch[1].toLowerCase()];
 
-      currentDay  = dayKey;
-      currentLabel = labelMatch || '';
-      if (!parsed[currentDay]) parsed[currentDay] = { label: currentLabel, exercises: [] };
-      else if (currentLabel) parsed[currentDay].label = currentLabel;
+      // Label = everything after "Monday" (and any "or Wednesday") up to end
+      // e.g. "Monday – Push + Core" → "Push + Core"
+      // "Tuesday or Wednesday – Lower body" → "Lower body"
+      let label = stripped
+        .replace(/\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b(\s+(or|and|\/)\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday))?/gi, '')
+        .replace(/^[\s:\-–—]+/, '').replace(/[\s:\-–—]+$/, '').trim();
+
+      currentDay = dayKey;
+      if (!parsed[currentDay]) parsed[currentDay] = { label, exercises: [] };
+      else if (label) parsed[currentDay].label = label;
       continue;
     }
 
-    if (!currentDay) continue; // Haven't found a day yet
+    if (!currentDay) continue;
 
-    // Rest day line → no exercises
-    if (REST_RE.test(stripped)) continue;
+    // ── Lines to skip ──
+    if (SKIP_RE.test(stripped)) { pendingExerciseName = null; continue; }
+    if (EQUIPMENT_RE.test(stripped)) continue; // pure equipment label line
 
-    // Try to parse as an exercise line
-    // Name is everything before the sets×reps part (or the whole line)
-    let name = stripped;
-    let sets = 0, reps = 0, notes = '';
-
-    const setsRepsMatch = SETS_REPS_RE.exec(stripped);
-    if (setsRepsMatch) {
-      sets = parseInt(setsRepsMatch[1]);
-      reps = parseInt(setsRepsMatch[2]);
-      // Name is everything before the match, cleaned up
-      name = stripped.slice(0, setsRepsMatch.index).replace(/[\s:\-–—(]+$/, '').trim();
-      // Notes = anything after the match
-      notes = stripped.slice(setsRepsMatch.index + setsRepsMatch[0].length).replace(/^[)\s:\-–—]+/, '').trim();
-    } else {
-      // Try sets only
-      const sM = SETS_ONLY_RE.exec(stripped);
-      const rM = REPS_ONLY_RE.exec(stripped);
-      if (sM) { sets = parseInt(sM[1]); name = stripped.slice(0, sM.index).replace(/[\s:\-–—]+$/, '').trim() || stripped; }
-      if (rM) { reps = parseInt(rM[1]); }
+    // ── Standalone sets×reps line? (e.g. "3 × 10" or "3 × 45s") ──
+    const srMatch = stripped.match(STANDALONE_SR_RE);
+    if (srMatch && pendingExerciseName) {
+      const sets = parseInt(srMatch[1]);
+      const repsRaw = srMatch[2]; // may be "10", "10/side", "45s", "max"
+      const reps = parseInt(repsRaw) || 0;
+      const notes = /^\d+$/.test(repsRaw) ? '' : repsRaw; // put "10/side" etc in notes
+      parsed[currentDay].exercises.push({ name: pendingExerciseName, sets, reps, notes });
+      pendingExerciseName = null;
+      continue;
     }
 
-    // Skip lines that are pure section headers (no name parseable, all caps label)
-    if (!name || name.length > 60) continue;
-    // Skip lines that look like sub-headers (e.g. "SUPERSET:", "CIRCUIT:")
-    if (/^(?:superset|circuit|finisher|warm.?up|cool.?down|notes?|tip)s?\s*[:\-–]?$/i.test(name) && !sets) continue;
+    // ── Inline sets×reps on same line as name? ──
+    // e.g. "DB push press 3 × 10" or "Bench Press 4x8"
+    const inlineMatch = stripped.match(INLINE_SETS_REPS_RE);
+    if (inlineMatch) {
+      // Flush previous pending
+      if (pendingExerciseName) {
+        parsed[currentDay].exercises.push({ name: pendingExerciseName, sets: 0, reps: 0, notes: '' });
+      }
+      const sets = parseInt(inlineMatch[1]);
+      const repsRaw = inlineMatch[2];
+      const reps = parseInt(repsRaw) || 0;
+      const notes = /^\d+$/.test(repsRaw) ? '' : repsRaw;
+      const name = stripped.slice(0, inlineMatch.index).replace(/[\s:\-–—(]+$/, '').trim();
+      if (name) {
+        parsed[currentDay].exercises.push({ name, sets, reps, notes });
+        pendingExerciseName = null;
+      }
+      continue;
+    }
 
-    parsed[currentDay].exercises.push({ name, sets, reps, notes });
+    // ── Otherwise treat as an exercise name (sets×reps expected on next line) ──
+    // Flush any previous pending that never got its sets/reps
+    if (pendingExerciseName) {
+      parsed[currentDay].exercises.push({ name: pendingExerciseName, sets: 0, reps: 0, notes: '' });
+    }
+    // Only treat as an exercise if it looks like a real name (not a pure number, not too long, not a note)
+    if (stripped.length <= 60 && !/^\d/.test(stripped)) {
+      pendingExerciseName = stripped;
+    } else {
+      pendingExerciseName = null;
+    }
+  }
+
+  // Flush last pending
+  if (pendingExerciseName && currentDay) {
+    parsed[currentDay].exercises.push({ name: pendingExerciseName, sets: 0, reps: 0, notes: '' });
   }
 
   const importedDays = Object.keys(parsed);
@@ -964,7 +996,6 @@ function parseAndImportRoutine() {
     newStatus.textContent = `✓ Imported ${importedDays.length} day${importedDays.length > 1 ? 's' : ''}: ${importedDays.join(', ')}`;
     newStatus.className = 'paste-status paste-status-ok';
   }
-  // Re-open the paste panel so user sees the result
   document.getElementById('pastePanel')?.classList.add('paste-panel-open');
   document.getElementById('pastePanelToggle')?.classList.add('paste-toggle-btn-active');
 }
