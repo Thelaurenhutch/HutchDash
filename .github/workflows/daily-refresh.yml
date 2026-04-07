@@ -1,0 +1,69 @@
+name: Refresh Dashboard Data
+
+on:
+  # Run every day at 6:00 AM EST (11:00 UTC)
+  schedule:
+    - cron: '0 11 * * *'
+  # Also allow manual trigger from GitHub Actions tab
+  workflow_dispatch:
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write   # needed to commit data.json back to the repo
+
+    steps:
+      # ── 1. Check out the repo ──
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Set up Python ──
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      # ── 3. Install dependencies ──
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install notion-client python-dotenv
+          # Optional: Outlook calendar support
+          pip install msal requests || true
+          # Optional: Apple calendar support
+          pip install caldav || true
+
+      # ── 4. Run the data generator ──
+      - name: Generate dashboard data
+        env:
+          NOTION_TOKEN:        ${{ secrets.NOTION_TOKEN }}
+          TODOS_DB:            ${{ secrets.TODOS_DB }}
+          WORKOUT_DB:          ${{ secrets.WORKOUT_DB }}
+          MACROS_DB:           ${{ secrets.MACROS_DB }}
+          # Macro goals (optional — defaults to 2000/150/200/65)
+          GOAL_CALORIES:       ${{ secrets.GOAL_CALORIES }}
+          GOAL_PROTEIN:        ${{ secrets.GOAL_PROTEIN }}
+          GOAL_CARBS:          ${{ secrets.GOAL_CARBS }}
+          GOAL_FAT:            ${{ secrets.GOAL_FAT }}
+          # Outlook calendar (optional)
+          OUTLOOK_CLIENT_ID:     ${{ secrets.OUTLOOK_CLIENT_ID }}
+          OUTLOOK_CLIENT_SECRET: ${{ secrets.OUTLOOK_CLIENT_SECRET }}
+          OUTLOOK_TENANT_ID:     ${{ secrets.OUTLOOK_TENANT_ID }}
+          # Apple CalDAV (optional)
+          APPLE_CALDAV_URL:    ${{ secrets.APPLE_CALDAV_URL }}
+          APPLE_USERNAME:      ${{ secrets.APPLE_USERNAME }}
+          APPLE_PASSWORD:      ${{ secrets.APPLE_PASSWORD }}
+        run: python generate_data.py
+
+      # ── 5. Commit updated data.json back to the repo ──
+      - name: Commit and push data.json
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/data/data.json
+          # Only commit if there are actual changes
+          git diff --cached --quiet || git commit -m "chore: refresh dashboard data [$(date -u '+%Y-%m-%d %H:%M UTC')]"
+          git push

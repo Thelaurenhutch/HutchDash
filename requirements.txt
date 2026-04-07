@@ -1,0 +1,10 @@
+# Core
+notion-client
+python-dotenv
+
+# Optional: Outlook / Microsoft Graph
+msal
+requests
+
+# Optional: Apple Calendar (iCloud CalDAV)
+caldav

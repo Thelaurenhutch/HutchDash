@@ -1,0 +1,681 @@
+/* ═══════════════════════════════════════════════════
+   HUTCHDASH — Wes Anderson × Retro Gaming
+   Color Palette:
+     Cream:   #FBF5E6   (background)
+     Brown:   #2C2416   (borders, text)
+     Gold:    #D4A853   (accent, headers)
+     Red:     #C65D52   (urgent, health)
+     Green:   #6B9F78   (success, sage)
+     Blue:    #5B7FA6   (calm, powder)
+     Pink:    #E8B4B8   (soft rose)
+     Yellow:  #F2E16A   (highlight)
+═══════════════════════════════════════════════════ */
+
+/* ── RESET & ROOT ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --cream:   #FBF5E6;
+  --cream2:  #F5EDD8;
+  --brown:   #2C2416;
+  --gold:    #D4A853;
+  --gold-lt: #F0D080;
+  --red:     #C65D52;
+  --green:   #6B9F78;
+  --blue:    #5B7FA6;
+  --pink:    #E8B4B8;
+  --yellow:  #F2E16A;
+  --shadow:  4px 4px 0px var(--brown);
+  --shadow-sm: 3px 3px 0px var(--brown);
+  --border:  3px solid var(--brown);
+  --radius:  2px;
+}
+
+html { font-size: 16px; }
+
+body {
+  background-color: var(--cream);
+  color: var(--brown);
+  font-family: 'Courier Prime', 'Courier New', monospace;
+  min-height: 100vh;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* ── SCANLINE OVERLAY ── */
+.scanlines {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.03) 2px,
+    rgba(0, 0, 0, 0.03) 4px
+  );
+}
+
+/* ── BACKGROUND PATTERN ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background-image:
+    radial-gradient(circle, rgba(212,168,83,0.08) 1px, transparent 1px);
+  background-size: 32px 32px;
+  pointer-events: none;
+}
+
+/* ── TYPOGRAPHY ── */
+.pixel-text {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.55rem;
+  letter-spacing: 0.05em;
+}
+
+/* ── HEADER ── */
+.site-header {
+  position: relative;
+  z-index: 10;
+  text-align: center;
+  padding: 0;
+}
+
+.header-stripe {
+  height: 8px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--brown) 0px, var(--brown) 16px,
+    var(--gold)  16px, var(--gold)  32px,
+    var(--red)   32px, var(--red)   48px,
+    var(--cream2) 48px, var(--cream2) 64px
+  );
+}
+
+.header-inner {
+  background: var(--gold);
+  border-bottom: var(--border);
+  border-top: var(--border);
+  padding: 1.5rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+}
+
+.header-emblem {
+  font-size: 2rem;
+  color: var(--brown);
+  flex-shrink: 0;
+}
+
+.header-label {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.5rem;
+  letter-spacing: 0.2em;
+  color: var(--brown);
+  text-transform: uppercase;
+  margin-bottom: 0.4rem;
+  opacity: 0.75;
+}
+
+.site-title {
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(1.4rem, 4vw, 2.6rem);
+  color: var(--brown);
+  letter-spacing: 0.1em;
+  text-shadow: 3px 3px 0 rgba(0,0,0,0.2);
+  line-height: 1.2;
+}
+
+.header-date {
+  font-family: 'Libre Baskerville', serif;
+  font-style: italic;
+  font-size: 0.95rem;
+  color: var(--brown);
+  margin-top: 0.4rem;
+  opacity: 0.8;
+}
+
+/* ── TICKER BAR ── */
+.ticker-bar {
+  background: var(--brown);
+  color: var(--gold);
+  padding: 0.4rem 1rem;
+  overflow: hidden;
+  position: relative;
+  z-index: 10;
+  border-bottom: 2px solid var(--gold);
+}
+
+.ticker-inner {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.45rem;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+  animation: ticker 25s linear infinite;
+  display: inline-block;
+}
+
+.ticker-label {
+  color: var(--pink);
+  margin-right: 0.5rem;
+}
+
+@keyframes ticker {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+/* ── MAIN GRID ── */
+.dashboard-grid {
+  position: relative;
+  z-index: 1;
+  max-width: 1200px;
+  margin: 2rem auto;
+  padding: 0 1.25rem 2rem;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: auto auto;
+  gap: 1.5rem;
+}
+
+/* ── CARD BASE ── */
+.card {
+  background: var(--cream);
+  border: var(--border);
+  box-shadow: var(--shadow);
+  border-radius: var(--radius);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.card:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0px var(--brown);
+}
+
+/* Wide card spans all columns */
+.card-wide {
+  grid-column: 1 / -1;
+}
+
+/* ── CARD HEADER ── */
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.75rem 1rem;
+  border-bottom: var(--border);
+  position: relative;
+}
+
+.card-calendar .card-header { background: var(--blue); }
+.card-workout  .card-header { background: var(--red); }
+.card-macros   .card-header { background: var(--green); }
+.card-todos    .card-header { background: var(--gold); }
+
+.card-icon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.card-title {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.55rem;
+  letter-spacing: 0.1em;
+  color: var(--brown);
+  flex: 1;
+  line-height: 1.4;
+}
+
+.card-badge {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.4rem;
+  background: var(--brown);
+  color: var(--gold);
+  padding: 0.3rem 0.5rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--brown);
+  white-space: nowrap;
+  letter-spacing: 0.05em;
+}
+
+/* ── CARD BODY ── */
+.card-body {
+  padding: 1rem;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.loading-block {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.5rem;
+  color: var(--brown);
+  opacity: 0.4;
+  text-align: center;
+  padding: 2rem 0;
+  animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 0.4; }
+  50%       { opacity: 0.1; }
+}
+
+/* ════════════════════════════════
+   CALENDAR EVENTS
+════════════════════════════════ */
+.calendar-event {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  border: 2px solid var(--brown);
+  background: var(--cream2);
+  box-shadow: var(--shadow-sm);
+  position: relative;
+}
+
+.event-time {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.45rem;
+  color: var(--brown);
+  white-space: nowrap;
+  padding-top: 0.1rem;
+  min-width: 52px;
+}
+
+.event-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 0;
+  border: 2px solid var(--brown);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.event-title {
+  font-family: 'Libre Baskerville', serif;
+  font-size: 0.88rem;
+  line-height: 1.3;
+  flex: 1;
+}
+
+.event-source {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.35rem;
+  opacity: 0.6;
+  text-transform: uppercase;
+  align-self: flex-end;
+}
+
+.no-events {
+  font-family: 'Libre Baskerville', serif;
+  font-style: italic;
+  font-size: 0.9rem;
+  opacity: 0.55;
+  text-align: center;
+  padding: 1rem 0;
+}
+
+/* ════════════════════════════════
+   WORKOUT EXERCISES
+════════════════════════════════ */
+.workout-day-label {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.5rem;
+  letter-spacing: 0.15em;
+  text-align: center;
+  padding: 0.4rem;
+  background: var(--red);
+  color: var(--cream);
+  border: 2px solid var(--brown);
+  box-shadow: var(--shadow-sm);
+}
+
+.exercise-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  border: 2px solid var(--brown);
+  background: var(--cream2);
+  box-shadow: 2px 2px 0 var(--brown);
+  position: relative;
+}
+
+.exercise-row::before {
+  content: '▶';
+  font-size: 0.6rem;
+  color: var(--red);
+  flex-shrink: 0;
+}
+
+.exercise-name {
+  font-family: 'Libre Baskerville', serif;
+  font-weight: 700;
+  font-size: 0.88rem;
+  flex: 1;
+}
+
+.exercise-sets {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.4rem;
+  background: var(--brown);
+  color: var(--cream);
+  padding: 0.3rem 0.45rem;
+  white-space: nowrap;
+}
+
+.exercise-notes {
+  font-size: 0.72rem;
+  font-style: italic;
+  opacity: 0.65;
+  padding: 0.2rem 0.75rem 0.2rem 1.75rem;
+  border-left: 2px solid var(--red);
+  margin-left: 0.2rem;
+}
+
+.rest-day {
+  font-family: 'Libre Baskerville', serif;
+  font-style: italic;
+  font-size: 1rem;
+  text-align: center;
+  padding: 1.5rem 0;
+  opacity: 0.6;
+}
+
+/* ════════════════════════════════
+   MACROS / STAT BARS
+════════════════════════════════ */
+.macro-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.macro-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.macro-label {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.45rem;
+  letter-spacing: 0.08em;
+}
+
+.macro-values {
+  font-family: 'Courier Prime', monospace;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.bar-track {
+  height: 18px;
+  background: var(--cream2);
+  border: 2px solid var(--brown);
+  position: relative;
+  overflow: hidden;
+  box-shadow: inset 2px 2px 0 rgba(0,0,0,0.1);
+}
+
+.bar-fill {
+  height: 100%;
+  position: relative;
+  transition: width 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+  /* Pixel segments */
+  background-image: repeating-linear-gradient(
+    90deg,
+    transparent,
+    transparent 14px,
+    rgba(0,0,0,0.12) 14px,
+    rgba(0,0,0,0.12) 16px
+  );
+}
+
+.bar-fill.cal  { background-color: #D4A853; }
+.bar-fill.pro  { background-color: #C65D52; }
+.bar-fill.carb { background-color: #5B7FA6; }
+.bar-fill.fat  { background-color: #6B9F78; }
+
+.bar-over {
+  background-color: #E8B4B8 !important;
+  animation: pulse-warn 1s ease-in-out infinite;
+}
+
+@keyframes pulse-warn {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.7; }
+}
+
+.macro-total-row {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.6rem;
+  background: var(--brown);
+  border: 2px solid var(--brown);
+  color: var(--cream);
+  margin-top: 0.25rem;
+}
+
+.macro-total-item {
+  flex: 1;
+  text-align: center;
+}
+
+.macro-total-num {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.5rem;
+  color: var(--gold);
+  display: block;
+}
+
+.macro-total-lbl {
+  font-size: 0.65rem;
+  opacity: 0.7;
+  display: block;
+  margin-top: 3px;
+}
+
+/* ════════════════════════════════
+   TODOS
+════════════════════════════════ */
+.todos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.75rem;
+}
+
+.todo-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.65rem 0.8rem;
+  border: 2px solid var(--brown);
+  background: var(--cream2);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.1s;
+  user-select: none;
+}
+
+.todo-item:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--brown);
+}
+
+.todo-item.done {
+  opacity: 0.45;
+  background: var(--cream);
+}
+
+.todo-item.done .todo-name {
+  text-decoration: line-through;
+}
+
+.todo-checkbox {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--brown);
+  background: var(--cream);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+  font-size: 0.7rem;
+  color: var(--green);
+}
+
+.todo-content { flex: 1; min-width: 0; }
+
+.todo-name {
+  font-family: 'Libre Baskerville', serif;
+  font-size: 0.88rem;
+  line-height: 1.35;
+  display: block;
+}
+
+.todo-meta {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.3rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.priority-badge {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.35rem;
+  padding: 0.2rem 0.4rem;
+  border: 1.5px solid var(--brown);
+  letter-spacing: 0.05em;
+}
+
+.priority-badge.High   { background: var(--red);    color: var(--cream); }
+.priority-badge.Medium { background: var(--gold);   color: var(--brown); }
+.priority-badge.Low    { background: var(--green);  color: var(--cream); }
+.priority-badge.None   { background: var(--cream2); color: var(--brown); }
+
+.todo-due {
+  font-size: 0.68rem;
+  opacity: 0.55;
+  font-style: italic;
+}
+
+.empty-todos {
+  text-align: center;
+  font-family: 'Libre Baskerville', serif;
+  font-style: italic;
+  font-size: 1rem;
+  opacity: 0.55;
+  padding: 1.5rem 0;
+}
+
+/* ── FOOTER ── */
+.site-footer {
+  position: relative;
+  z-index: 10;
+  border-top: var(--border);
+  background: var(--brown);
+  color: var(--gold);
+  padding: 0.75rem 1rem;
+  text-align: center;
+}
+
+.footer-inner {
+  font-family: 'Courier Prime', monospace;
+  font-size: 0.75rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.footer-sep { opacity: 0.35; }
+
+.footer-inner .pixel-text {
+  font-size: 0.45rem;
+  letter-spacing: 0.12em;
+  color: var(--pink);
+  animation: cursor-blink 1.2s step-end infinite;
+}
+
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+
+/* ══════════════════════════════════
+   RESPONSIVE — TABLET
+══════════════════════════════════ */
+@media (max-width: 900px) {
+  .dashboard-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .card-wide {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ══════════════════════════════════
+   RESPONSIVE — MOBILE
+══════════════════════════════════ */
+@media (max-width: 600px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    padding: 0 0.75rem 1.5rem;
+    margin: 1rem auto;
+  }
+
+  .card-wide {
+    grid-column: 1;
+  }
+
+  .site-title {
+    font-size: 1.2rem;
+  }
+
+  .header-inner {
+    padding: 1rem;
+    gap: 1rem;
+  }
+
+  .header-emblem {
+    font-size: 1.3rem;
+  }
+
+  .ticker-inner {
+    font-size: 0.38rem;
+  }
+
+  .todos-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .macro-total-row {
+    flex-wrap: wrap;
+  }
+
+  .macro-total-item {
+    flex: 0 0 calc(50% - 0.25rem);
+  }
+}
+
+/* ── SCROLLBAR STYLING ── */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--cream2); border-left: 2px solid var(--brown); }
+::-webkit-scrollbar-thumb { background: var(--brown); }
+::-webkit-scrollbar-thumb:hover { background: var(--gold); }

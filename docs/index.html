@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HUTCHDASH — Daily Briefing</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- SCANLINE OVERLAY -->
+  <div class="scanlines" aria-hidden="true"></div>
+
+  <!-- HEADER -->
+  <header class="site-header">
+    <div class="header-stripe top-stripe"></div>
+    <div class="header-inner">
+      <div class="header-emblem">✦</div>
+      <div class="header-text">
+        <p class="header-label">CLASSIFIED DAILY BRIEFING</p>
+        <h1 class="site-title">HUTCHDASH</h1>
+        <p class="header-date" id="headerDate">Loading...</p>
+      </div>
+      <div class="header-emblem">✦</div>
+    </div>
+    <div class="header-stripe bottom-stripe"></div>
+  </header>
+
+  <!-- LAST UPDATED TICKER -->
+  <div class="ticker-bar">
+    <div class="ticker-inner">
+      <span class="ticker-label">LAST SYNCED:</span>
+      <span id="lastSynced">—</span>
+      &nbsp;★&nbsp; MISSION STATUS: ACTIVE &nbsp;★&nbsp; AGENT: L. HUTCHISON &nbsp;★&nbsp; CLEARANCE: LEVEL 5
+    </div>
+  </div>
+
+  <!-- MAIN GRID -->
+  <main class="dashboard-grid" id="dashboardGrid">
+
+    <!-- ══ CALENDAR COLUMN ══ -->
+    <section class="card card-calendar" id="calendarCard">
+      <div class="card-header">
+        <span class="card-icon">📅</span>
+        <h2 class="card-title">TODAY'S MISSIONS</h2>
+        <span class="card-badge">CALENDAR</span>
+      </div>
+      <div class="card-body" id="calendarBody">
+        <div class="loading-block">LOADING INTEL...</div>
+      </div>
+    </section>
+
+    <!-- ══ WORKOUT COLUMN ══ -->
+    <section class="card card-workout" id="workoutCard">
+      <div class="card-header">
+        <span class="card-icon">⚔️</span>
+        <h2 class="card-title">TRAINING REGIMEN</h2>
+        <span class="card-badge" id="workoutBadge">DAY</span>
+      </div>
+      <div class="card-body" id="workoutBody">
+        <div class="loading-block">LOADING INTEL...</div>
+      </div>
+    </section>
+
+    <!-- ══ MACROS COLUMN ══ -->
+    <section class="card card-macros" id="macrosCard">
+      <div class="card-header">
+        <span class="card-icon">🍖</span>
+        <h2 class="card-title">FUEL RESERVES</h2>
+        <span class="card-badge">MACROS</span>
+      </div>
+      <div class="card-body" id="macrosBody">
+        <div class="loading-block">LOADING INTEL...</div>
+      </div>
+    </section>
+
+    <!-- ══ TODO FULL WIDTH ══ -->
+    <section class="card card-todos card-wide" id="todosCard">
+      <div class="card-header">
+        <span class="card-icon">📋</span>
+        <h2 class="card-title">FIELD OBJECTIVES</h2>
+        <span class="card-badge" id="todosBadge">0 ACTIVE</span>
+      </div>
+      <div class="card-body" id="todosBody">
+        <div class="loading-block">LOADING INTEL...</div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <span class="pixel-text">★ HUTCHDASH v1.0 ★</span>
+      <span class="footer-sep">|</span>
+      <span>Powered by Notion + GitHub Pages</span>
+      <span class="footer-sep">|</span>
+      <span class="pixel-text">PRESS START TO CONTINUE</span>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
