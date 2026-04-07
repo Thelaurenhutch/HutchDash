@@ -214,7 +214,6 @@ function renderWorkoutFromState(state, flash) {
            onclick="toggleExercise(${i})">
         <div class="ex-checkbox${checked ? ' ex-checkbox-done' : ''}">${checked ? '✔' : ''}</div>
         <span class="exercise-name">${escHtml(ex.name)}</span>
-        <span class="exercise-sets">${ex.sets}×${ex.reps}</span>
       </div>
       ${ex.notes ? `<div class="exercise-notes">${escHtml(ex.notes)}</div>` : ''}`;
   }).join('');
