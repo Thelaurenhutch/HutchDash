@@ -19,6 +19,24 @@ const pct = (val, max) => Math.min(100, Math.round((val / max) * 100));
 // ── Utility: today as YYYY-MM-DD ──
 const getTodayStr = () => new Date().toISOString().slice(0, 10);
 
+// ── Utility: format reps for display on workout card ──
+// e.g. reps=10, notes=""        → "10 reps"
+//      reps=0,  notes="10/side" → "10 per side"
+//      reps=0,  notes="12/leg"  → "12 per leg"
+//      reps=0,  notes="45s"     → "45s"
+//      reps=0,  notes="max"     → "max"
+function formatReps(reps, notes) {
+  const raw = (notes && notes.trim()) ? notes.trim() : (reps ? String(reps) : '');
+  if (!raw) return '';
+  // "10/side" → "10 per side", "12/leg" → "12 per leg", "10/arm" → "10 per arm"
+  const splitMatch = raw.match(/^(\d+)\/(side|leg|arm|hand|foot|rep)s?$/i);
+  if (splitMatch) return `${splitMatch[1]} per ${splitMatch[2].toLowerCase()}`;
+  // plain number with no notes → "X reps"
+  if (/^\d+$/.test(raw)) return `${raw} reps`;
+  // anything else (45s, max, etc.) → as-is
+  return raw;
+}
+
 // ══════════════════════════════════════════
 //  FIREBASE STATE
 // ══════════════════════════════════════════
@@ -214,9 +232,8 @@ function renderWorkoutFromState(state, flash) {
            onclick="toggleExercise(${i})">
         <div class="ex-checkbox${checked ? ' ex-checkbox-done' : ''}">${checked ? '✔' : ''}</div>
         <span class="exercise-name">${escHtml(ex.name)}</span>
-        ${(ex.reps || ex.notes) ? `<span class="exercise-sets">${ex.reps ? ex.reps + (ex.notes ? ' ' + escHtml(ex.notes) : '') : escHtml(ex.notes)}</span>` : ''}
-      </div>
-      ${ex.notes ? `<div class="exercise-notes">${escHtml(ex.notes)}</div>` : ''}`;
+        <span class="exercise-sets">${formatReps(ex.reps, ex.notes)}</span>
+      </div>`;
   }).join('');
 
   body.innerHTML = progressHtml + rowsHtml;
