@@ -629,7 +629,7 @@ function openWorkoutPlanModal() {
   if (!modal) return;
   _planEditDay = new Date().toLocaleDateString('en-US', { weekday: 'short' });
   if (!PLAN_DAYS.includes(_planEditDay)) _planEditDay = 'Mon';
-  renderPlanModalDay(_planEditDay);
+  try { renderPlanModalDay(_planEditDay); } catch(e) { console.error('renderPlanModalDay error', e); }
   modal.classList.add('modal-open');
 }
 
@@ -702,7 +702,7 @@ function savePlanDay(day) {
   saveWorkoutPlan(plan);
 
   const btn = document.getElementById('planSaveBtn');
-  if (btn) { btn.textContent = '&#10004; SAVED!'; setTimeout(() => btn.textContent = `&#9658; SAVE ${day.toUpperCase()}`, 1400); }
+  if (btn) { btn.innerHTML = '&#10004; SAVED!'; setTimeout(() => btn.innerHTML = `&#9658; SAVE ${day.toUpperCase()}`, 1400); }
 
   const today = new Date().toLocaleDateString('en-US', { weekday: 'short' });
   if (day === today) renderWorkoutFromPlan();
