@@ -809,7 +809,24 @@ function renderPlanModalDay(day) {
   const bodyEl  = document.getElementById('planModalBody');
   if (!bodyEl) return;
 
+  // Preserve paste panel open/close state across day switches
+  const pasteWasOpen = bodyEl.querySelector('.paste-panel')?.classList.contains('paste-panel-open');
+
   bodyEl.innerHTML = `
+    <div class="paste-toggle-row">
+      <button class="paste-toggle-btn" onclick="togglePastePanel()"
+              id="pastePanelToggle">📋 PASTE ROUTINE</button>
+    </div>
+    <div class="paste-panel${pasteWasOpen ? ' paste-panel-open' : ''}" id="pastePanel">
+      <p class="paste-hint">Paste your full weekly routine (all days). Days will be auto-detected.<br>
+        <span class="paste-hint-ex">e.g. "Monday – Upper Body<br>Bench Press 4x8<br>Rows 3x10<br>…<br>Tuesday – Lower Body…"</span>
+      </p>
+      <textarea class="paste-textarea" id="pasteTextarea" placeholder="Paste routine here…" rows="9"></textarea>
+      <div class="paste-action-row">
+        <button class="paste-import-btn" onclick="parseAndImportRoutine()">⚡ PARSE &amp; IMPORT ALL DAYS</button>
+        <span class="paste-status" id="pasteStatus"></span>
+      </div>
+    </div>
     <input class="plan-label-input" id="planDayLabel" type="text"
            placeholder="Day label (e.g. UPPER BODY)"
            value="${escHtml(dayData.label || '')}" />
@@ -821,6 +838,135 @@ function renderPlanModalDay(day) {
       <button class="plan-save-day-btn" id="planSaveBtn" onclick="savePlanDay('${day}')">&#9658; SAVE ${day.toUpperCase()}</button>
       <button class="plan-clear-day-btn" onclick="clearPlanDay('${day}')">&#10005; CLEAR DAY</button>
     </div>`;
+}
+
+function togglePastePanel() {
+  const panel = document.getElementById('pastePanel');
+  const btn   = document.getElementById('pastePanelToggle');
+  if (!panel) return;
+  const open = panel.classList.toggle('paste-panel-open');
+  if (btn) btn.classList.toggle('paste-toggle-btn-active', open);
+  if (open) document.getElementById('pasteTextarea')?.focus();
+}
+
+// ── Parse a pasted multi-day routine and import all days ──
+function parseAndImportRoutine() {
+  const text = (document.getElementById('pasteTextarea')?.value || '').trim();
+  const statusEl = document.getElementById('pasteStatus');
+  if (!text) { if (statusEl) { statusEl.textContent = '⚠ Nothing pasted.'; statusEl.className = 'paste-status paste-status-err'; } return; }
+
+  const DAY_MAP = {
+    monday: 'Mon', tuesday: 'Tue', wednesday: 'Wed', thursday: 'Thu',
+    friday: 'Fri', saturday: 'Sat', sunday: 'Sun',
+    mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu',
+    fri: 'Fri', sat: 'Sat', sun: 'Sun',
+    // Day 1-7 → Mon-Sun
+    'day 1': 'Mon', 'day 2': 'Tue', 'day 3': 'Wed', 'day 4': 'Thu',
+    'day 5': 'Fri', 'day 6': 'Sat', 'day 7': 'Sun',
+  };
+
+  // Regex to detect a day-header line
+  const DAY_HEADER_RE = /^(?:#+\s*)?(?:day\s*[1-7]|monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\b/i;
+
+  // Regex to extract sets × reps from an exercise line
+  // Matches: 4x8, 4×8, 4 x 8, 4 sets x 8 reps, 4 sets of 8, (4x8)
+  const SETS_REPS_RE = /(\d+)\s*(?:sets?\s*(?:x|of|×)\s*)?(?:x|×)\s*(\d+)(?:\s*reps?)?/i;
+  const SETS_ONLY_RE = /(\d+)\s*sets?/i;
+  const REPS_ONLY_RE = /(\d+)\s*reps?/i;
+
+  // Lines that indicate a rest day
+  const REST_RE = /^\s*(?:rest|off|active\s+recovery|cardio\s+only|rest\s*\/?\s*cardio)\s*[:\-–—]?\s*$/i;
+
+  const lines = text.split(/\r?\n/);
+  const parsed = {}; // { Mon: { label, exercises } }
+  let currentDay = null;
+  let currentLabel = '';
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) continue;
+
+    // Strip common list prefixes: -, *, •, numbers, etc.
+    const stripped = line.replace(/^[-*•·]\s*/, '').replace(/^\d+[.)]\s*/, '');
+
+    // Check for day header
+    if (DAY_HEADER_RE.test(stripped)) {
+      // Extract day key
+      let dayKey = null;
+      for (const [k, v] of Object.entries(DAY_MAP)) {
+        const re = new RegExp('\\b' + k.replace(' ', '\\s+') + '\\b', 'i');
+        if (re.test(stripped)) { dayKey = v; break; }
+      }
+      if (!dayKey) continue;
+
+      // Extract label: everything after the day word + separator
+      const labelMatch = stripped.replace(/^(?:day\s*\d+\s*)?(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)/i, '')
+                                  .replace(/^[\s:\-–—]+/, '').trim();
+
+      currentDay  = dayKey;
+      currentLabel = labelMatch || '';
+      if (!parsed[currentDay]) parsed[currentDay] = { label: currentLabel, exercises: [] };
+      else if (currentLabel) parsed[currentDay].label = currentLabel;
+      continue;
+    }
+
+    if (!currentDay) continue; // Haven't found a day yet
+
+    // Rest day line → no exercises
+    if (REST_RE.test(stripped)) continue;
+
+    // Try to parse as an exercise line
+    // Name is everything before the sets×reps part (or the whole line)
+    let name = stripped;
+    let sets = 0, reps = 0, notes = '';
+
+    const setsRepsMatch = SETS_REPS_RE.exec(stripped);
+    if (setsRepsMatch) {
+      sets = parseInt(setsRepsMatch[1]);
+      reps = parseInt(setsRepsMatch[2]);
+      // Name is everything before the match, cleaned up
+      name = stripped.slice(0, setsRepsMatch.index).replace(/[\s:\-–—(]+$/, '').trim();
+      // Notes = anything after the match
+      notes = stripped.slice(setsRepsMatch.index + setsRepsMatch[0].length).replace(/^[)\s:\-–—]+/, '').trim();
+    } else {
+      // Try sets only
+      const sM = SETS_ONLY_RE.exec(stripped);
+      const rM = REPS_ONLY_RE.exec(stripped);
+      if (sM) { sets = parseInt(sM[1]); name = stripped.slice(0, sM.index).replace(/[\s:\-–—]+$/, '').trim() || stripped; }
+      if (rM) { reps = parseInt(rM[1]); }
+    }
+
+    // Skip lines that are pure section headers (no name parseable, all caps label)
+    if (!name || name.length > 60) continue;
+    // Skip lines that look like sub-headers (e.g. "SUPERSET:", "CIRCUIT:")
+    if (/^(?:superset|circuit|finisher|warm.?up|cool.?down|notes?|tip)s?\s*[:\-–]?$/i.test(name) && !sets) continue;
+
+    parsed[currentDay].exercises.push({ name, sets, reps, notes });
+  }
+
+  const importedDays = Object.keys(parsed);
+  if (importedDays.length === 0) {
+    if (statusEl) { statusEl.textContent = '⚠ No days detected. Check format.'; statusEl.className = 'paste-status paste-status-err'; }
+    return;
+  }
+
+  // Merge into existing plan (preserving days not in the paste)
+  const plan = { ...(_workoutPlan || {}) };
+  for (const [d, data] of Object.entries(parsed)) plan[d] = data;
+  saveWorkoutPlan(plan);
+
+  // Re-render current day
+  renderPlanModalDay(_planEditDay);
+
+  // Show success — re-query after re-render
+  const newStatus = document.getElementById('pasteStatus');
+  if (newStatus) {
+    newStatus.textContent = `✓ Imported ${importedDays.length} day${importedDays.length > 1 ? 's' : ''}: ${importedDays.join(', ')}`;
+    newStatus.className = 'paste-status paste-status-ok';
+  }
+  // Re-open the paste panel so user sees the result
+  document.getElementById('pastePanel')?.classList.add('paste-panel-open');
+  document.getElementById('pastePanelToggle')?.classList.add('paste-toggle-btn-active');
 }
 
 function renderPlanExRow(ex, i) {

@@ -1617,3 +1617,84 @@ body::before {
 
 /* plan modal body padding */
 #planModalBody { padding: 14px 16px; }
+
+/* ── PASTE ROUTINE panel ── */
+.paste-toggle-row {
+  margin-bottom: 10px;
+}
+.paste-toggle-btn {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.42rem;
+  padding: 6px 12px;
+  border: 2px dashed var(--brown);
+  background: transparent;
+  color: var(--brown);
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.paste-toggle-btn:hover,
+.paste-toggle-btn.paste-toggle-btn-active {
+  background: var(--brown);
+  color: var(--cream);
+  border-style: solid;
+}
+.paste-panel {
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--cream2);
+  border: 2px solid var(--gold);
+  padding: 12px;
+  margin-bottom: 14px;
+}
+.paste-panel.paste-panel-open { display: flex; }
+.paste-hint {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.38rem;
+  color: var(--brown);
+  line-height: 1.7;
+  margin: 0;
+}
+.paste-hint-ex {
+  opacity: 0.6;
+  font-style: italic;
+}
+.paste-textarea {
+  font-family: 'Courier New', monospace;
+  font-size: 0.72rem;
+  padding: 8px 10px;
+  border: 2px solid var(--brown);
+  background: var(--cream);
+  color: var(--brown);
+  resize: vertical;
+  width: 100%;
+  box-sizing: border-box;
+  line-height: 1.5;
+}
+.paste-textarea:focus { outline: none; border-color: var(--red); }
+.paste-action-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.paste-import-btn {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.42rem;
+  padding: 8px 14px;
+  border: 2px solid var(--red);
+  background: var(--red);
+  color: var(--cream);
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  transition: background 0.15s, color 0.15s;
+}
+.paste-import-btn:hover { background: var(--brown); border-color: var(--brown); }
+.paste-status {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.38rem;
+  letter-spacing: 0.03em;
+}
+.paste-status-ok  { color: #4a8a5a; }
+.paste-status-err { color: var(--red); }
