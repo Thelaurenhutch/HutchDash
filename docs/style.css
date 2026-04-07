@@ -297,6 +297,8 @@ body::before {
   position: relative;
   display: flex;
   flex-direction: column;
+  min-width: 0;          /* prevent grid blowout */
+  overflow: hidden;
   transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
 
@@ -1373,54 +1375,85 @@ body::before {
    RESPONSIVE — MOBILE
 ══════════════════════════════════ */
 @media (max-width: 600px) {
+  /* Grid */
   .dashboard-grid {
     grid-template-columns: 1fr;
     gap: 1rem;
     padding: 0 0.75rem 1.5rem;
     margin: 1rem auto;
   }
+  .card-wide { grid-column: 1; }
 
-  .card-wide {
-    grid-column: 1;
+  /* Cards must not overflow grid cell */
+  .card { min-width: 0; overflow: hidden; }
+
+  /* Header */
+  .site-title { font-size: 1.2rem; }
+  .header-inner { padding: 1rem; gap: 0.75rem; }
+  .header-emblem { font-size: 1.3rem; }
+  .ticker-inner { font-size: 0.38rem; }
+
+  /* Auth bar — stack vertically if needed, prevent overflow */
+  .auth-bar-inner {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+  }
+  .auth-status { min-width: 0; }
+  .auth-status-text {
+    font-size: 0.32rem;
+    white-space: normal;
+    word-break: break-word;
+  }
+  .auth-btn {
+    font-size: 0.3rem;
+    padding: 0.4rem 0.55rem;
+    white-space: nowrap;
   }
 
-  .site-title {
-    font-size: 1.2rem;
-  }
-
-  .header-inner {
-    padding: 1rem;
-    gap: 1rem;
-  }
-
-  .header-emblem {
-    font-size: 1.3rem;
-  }
-
-  .ticker-inner {
-    font-size: 0.38rem;
-  }
-
-  .todos-grid {
+  /* Intel strip — stack vertically */
+  .intel-strip { padding: 0 0.75rem; margin-top: 0.5rem; }
+  .intel-strip-inner {
     grid-template-columns: 1fr;
   }
-
-  .macro-total-row {
-    flex-wrap: wrap;
+  .intel-block {
+    border-right: none;
+    border-bottom: 1px solid rgba(255,255,255,0.12);
+    padding: 6px 12px;
   }
+  .intel-block:last-child { border-bottom: none; }
+  .intel-news-scroll { max-width: 100%; }
+  /* Tooltip anchors to correct side on mobile */
+  .intel-tooltip { left: 0; right: 0; max-width: 100%; }
 
-  .macro-total-item {
-    flex: 0 0 calc(50% - 0.25rem);
-  }
+  /* Macros */
+  .macro-total-row { flex-wrap: wrap; }
+  .macro-total-item { flex: 0 0 calc(50% - 0.25rem); }
 
-  .food-input-row {
-    grid-template-columns: repeat(2, 1fr);
-  }
+  /* Food form — collapse 5-col grid to 2-col */
+  .food-input-row { grid-template-columns: repeat(2, 1fr); }
 
-  .set-pip {
-    width: 20px;
-    height: 12px;
+  /* Todo grid */
+  .todos-grid { grid-template-columns: 1fr; }
+
+  /* Todo add form row — stack */
+  .todo-form-row { grid-template-columns: 1fr 1fr; }
+  .todo-form-submit { grid-column: 1 / -1; }
+
+  /* Workout plan modal exercise rows — simplify layout */
+  .plan-ex-row {
+    grid-template-columns: 1fr 44px 12px 44px 1fr 26px;
+    gap: 3px;
   }
+  .plan-input { font-size: 0.75rem; padding: 3px 4px; }
+
+  /* Set pips */
+  .set-pip { width: 20px; height: 12px; }
+
+  /* Modal — full width on small screens */
+  .modal-box { width: 96vw; }
+  .modal-box-wide { width: 96vw; }
+  #planModalBody { max-height: 65vh; }
 }
 
 /* ── SCROLLBAR STYLING ── */
