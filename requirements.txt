@@ -1,6 +1,14 @@
 ﻿# Core
-notion-client==2.2.1
 python-dotenv
+firebase-admin
+
+# Calendar - Outlook ICS
+requests
+icalendar
+pytz
+
+# Optional: Apple Calendar (iCloud CalDAV)
+caldav
 
 # Calendar - Outlook ICS (no app registration needed)
 requests

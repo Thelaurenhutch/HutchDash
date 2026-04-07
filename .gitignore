@@ -1,7 +1,12 @@
 # Environment variables — NEVER commit these
 .env
 .env.*
+env
 !.env.example
+
+# Firebase service account — NEVER commit this
+*service-account*.json
+hutchdash-service-account.json
 
 # Python
 __pycache__/

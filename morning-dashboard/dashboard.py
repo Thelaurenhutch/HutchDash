@@ -1,75 +1,82 @@
-from notion_client import Client
-from dotenv import load_dotenv
-from datetime import date
 import os
+from datetime import date
+from pathlib import Path
+from dotenv import load_dotenv
+import firebase_admin
+from firebase_admin import credentials, firestore
 
-load_dotenv()
-notion = Client(auth=os.getenv("NOTION_TOKEN"))
+load_dotenv(dotenv_path=Path(__file__).parent.parent / "env")
 
+# ── Firebase init ──
+_cred_path = os.getenv("FIREBASE_SERVICE_ACCOUNT")
+if not firebase_admin._apps:
+    if _cred_path and Path(_cred_path).exists():
+        cred = credentials.Certificate(_cred_path)
+        firebase_admin.initialize_app(cred, {"projectId": "hutchdash"})
+    else:
+        firebase_admin.initialize_app(options={"projectId": "hutchdash"})
+
+db    = firestore.client()
+UID   = os.getenv("FIREBASE_UID")
 today = date.today().isoformat()
+DAY   = date.today().strftime("%a")  # Mon, Tue, etc.
 
 def get_todos():
-    results = notion.databases.query(
-        database_id=os.getenv("TODOS_DB"),
-        filter={
-            "and": [
-                {"property": "Status", "checkbox": {"equals": False}},
-            ]
-        }
-    ).get("results", [])
-    
+    if not UID:
+        print("⚠️  FIREBASE_UID not set"); return
+    doc = db.collection("users").document(UID).collection("data").document("todos").get()
+    items = doc.to_dict().get("items", []) if doc.exists else []
+    active = [i for i in items if not i.get("done")]
+
     print("\n📋 TODOS")
     print("-" * 30)
-    for item in results:
-        props = item["properties"]
-        name = props["Name"]["title"][0]["text"]["content"] if props["Name"]["title"] else "Untitled"
-        priority = props["Priority"]["select"]["name"] if props["Priority"]["select"] else "None"
-        due = props["Due Date"]["date"]["start"] if props["Due Date"]["date"] else "No date"
+    if not active:
+        print("  No active todos.")
+    for item in active:
+        name     = item.get("text", "Untitled")
+        priority = item.get("priority", "None")
+        due      = item.get("due", "No date") or "No date"
         print(f"  [{priority}] {name} — due {due}")
 
+
 def get_workouts():
-    day_name = date.today().strftime("%a")  # Mon, Tue, etc.
-    day_map = {"Mon":"Mon","Tue":"Tue","Wed":"Wed","Thu":"Thu","Fri":"Fri","Sat":"Sat","Sun":"Sun"}
-    
-    results = notion.databases.query(
-        database_id=os.getenv("WORKOUT_DB"),
-        filter={
-            "property": "Day",
-            "select": {"equals": day_map[day_name]}
-        }
-    ).get("results", [])
-    
+    if not UID:
+        print("⚠️  FIREBASE_UID not set"); return
+    doc  = db.collection("users").document(UID).collection("data").document("workout_plan").get()
+    plan = doc.to_dict().get("plan", {}) if doc.exists else {}
+    day_data = plan.get(DAY, {})
+    exercises = day_data.get("exercises", [])
+
     print("\n💪 TODAY'S WORKOUT")
     print("-" * 30)
-    if not results:
+    if not exercises:
         print("  Rest day or nothing scheduled.")
-    for item in results:
-        props = item["properties"]
-        name = props["Name"]["title"][0]["text"]["content"] if props["Name"]["title"] else "Untitled"
-        sets = props["Sets"]["number"] if props["Sets"]["number"] else "-"
-        reps = props["Reps"]["number"] if props["Reps"]["number"] else "-"
+    for ex in exercises:
+        name = ex.get("name", "Untitled")
+        sets = ex.get("sets", "-")
+        reps = ex.get("reps", "-")
         print(f"  {name} — {sets}x{reps}")
 
+
 def get_macros():
-    results = notion.databases.query(
-        database_id=os.getenv("MACROS_DB")
-    ).get("results", [])
-    
+    if not UID:
+        print("⚠️  FIREBASE_UID not set"); return
+    doc   = db.collection("users").document(UID).collection("food").document(today).get()
+    items = doc.to_dict().get("items", []) if doc.exists else []
+
     total_cal = total_protein = total_carbs = total_fat = 0
-    
-    for item in results:
-        props = item["properties"]
-        total_cal += props["Calories"]["number"] or 0
-        total_protein += props["Protein"]["number"] or 0
-        total_carbs += props["Carbs"]["number"] or 0
-        total_fat += props["Fat"]["number"] or 0
-    
+    for item in items:
+        total_cal     += item.get("calories", 0)
+        total_protein += item.get("protein",  0)
+        total_carbs   += item.get("carbs",    0)
+        total_fat     += item.get("fat",      0)
+
     print("\n🥗 MACROS TOTALS")
     print("-" * 30)
-    print(f"  Calories: {total_cal}")
-    print(f"  Protein:  {total_protein}g")
-    print(f"  Carbs:    {total_carbs}g")
-    print(f"  Fat:      {total_fat}g")
+    print(f"  Calories: {round(total_cal, 1)}")
+    print(f"  Protein:  {round(total_protein, 1)}g")
+    print(f"  Carbs:    {round(total_carbs, 1)}g")
+    print(f"  Fat:      {round(total_fat, 1)}g")
 
 
 print(f"\n🌅 MORNING DASHBOARD — {today}")

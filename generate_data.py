@@ -1,6 +1,6 @@
 """
 generate_data.py
-Pulls data from Notion (and optionally Outlook / Apple Calendar)
+Pulls data from Firebase Firestore (and optionally Outlook / Apple Calendar)
 and writes docs/data/data.json for the HUTCHDASH GitHub Pages site.
 
 Run manually:  python generate_data.py
@@ -12,7 +12,8 @@ import os
 from datetime import date, datetime, timezone
 from pathlib import Path
 
-from notion_client import Client
+import firebase_admin
+from firebase_admin import credentials, firestore
 from dotenv import load_dotenv
 
 # ── Optional calendar imports (skip gracefully if not configured) ──
@@ -33,55 +34,59 @@ except ImportError:
 # ─────────────────────────────────────────
 load_dotenv()
 
-notion = Client(auth=os.getenv("NOTION_TOKEN"))
-TODAY  = date.today()
-TODAY_ISO   = TODAY.isoformat()
-TODAY_NAME  = TODAY.strftime("%A, %B %-d, %Y") if os.name != 'nt' else TODAY.strftime("%A, %B %d, %Y").lstrip("0")
-DAY_SHORT   = TODAY.strftime("%a")   # Mon, Tue, …
+# ── Firebase Admin init ──
+# Uses GOOGLE_APPLICATION_CREDENTIALS env var pointing to a service account JSON,
+# or falls back to Application Default Credentials (e.g. in CI/Cloud Run).
+_fb_cred_path = os.getenv("FIREBASE_SERVICE_ACCOUNT")
+if _fb_cred_path and Path(_fb_cred_path).exists():
+    cred = credentials.Certificate(_fb_cred_path)
+    firebase_admin.initialize_app(cred, {"projectId": "hutchdash"})
+else:
+    firebase_admin.initialize_app(options={"projectId": "hutchdash"})
+
+db = firestore.client()
+
+TODAY        = date.today()
+TODAY_ISO    = TODAY.isoformat()
+TODAY_NAME   = TODAY.strftime("%A, %B %-d, %Y") if os.name != 'nt' else TODAY.strftime("%A, %B %d, %Y").lstrip("0")
+DAY_SHORT    = TODAY.strftime("%a")   # Mon, Tue, …
 
 OUT_PATH = Path(__file__).parent / "docs" / "data" / "data.json"
 
 # ══════════════════════════════════════════
-#  NOTION — TODOS
+#  FIREBASE — TODOS
 # ══════════════════════════════════════════
 def get_todos() -> list:
     try:
-        results = notion.databases.query(
-            database_id=os.getenv("TODOS_DB")
-        ).get("results", [])
+        snap = db.collection("users").stream()
+        # Todos are stored per-user; collect from all users (single-user setup)
+        todos = []
+        for user_doc in snap:
+            uid = user_doc.id
+            items_doc = db.collection("users").document(uid).collection("data").document("todos").get()
+            if not items_doc.exists:
+                continue
+            for item in (items_doc.to_dict() or {}).get("items", []):
+                if item.get("done"):
+                    continue
+                todos.append({
+                    "id":       item.get("id", ""),
+                    "name":     item.get("text", "Untitled"),
+                    "priority": item.get("priority", "None"),
+                    "due":      item.get("due", None),
+                    "done":     False,
+                    "category": item.get("category", "Other"),
+                })
+        order = {"High": 0, "Medium": 1, "Low": 2, "None": 3}
+        todos.sort(key=lambda t: order.get(t["priority"], 99))
+        return todos
     except Exception as e:
         print(f"[WARN] Could not fetch todos: {e}")
         return []
 
-    todos = []
-    for item in results:
-        props = item["properties"]
-        name     = (props.get("Name", {}).get("title") or [{}])[0].get("text", {}).get("content", "Untitled")
-        priority = (props.get("Priority", {}).get("select") or {}).get("name", "None")
-        due_raw  = (props.get("Due Date", {}).get("date") or {}).get("start")
-        # Include only items that aren't marked done via checkbox or status
-        status_prop = props.get("Status", {})
-        prop_type = list(status_prop.keys())[0] if status_prop else None
-        if prop_type == "checkbox" and status_prop["checkbox"] == True:
-            continue
-        if prop_type == "status" and (status_prop.get("status") or {}).get("name", "").lower() in ("done", "complete", "completed"):
-            continue
-        todos.append({
-            "id":       item["id"],
-            "name":     name,
-            "priority": priority,
-            "due":      due_raw,
-            "done":     False,
-        })
-
-    # Sort: High → Medium → Low → None
-    order = {"High": 0, "Medium": 1, "Low": 2, "None": 3}
-    todos.sort(key=lambda t: order.get(t["priority"], 99))
-    return todos
-
 
 # ══════════════════════════════════════════
-#  NOTION — WORKOUT
+#  FIREBASE — WORKOUT
 # ══════════════════════════════════════════
 WORKOUT_LABELS = {
     "Mon": "UPPER BODY",
@@ -95,51 +100,29 @@ WORKOUT_LABELS = {
 
 def get_workout() -> dict | None:
     try:
-        results = notion.databases.query(
-            database_id=os.getenv("WORKOUT_DB")
-        ).get("results", [])
+        snap = db.collection("users").stream()
+        for user_doc in snap:
+            uid = user_doc.id
+            plan_doc = db.collection("users").document(uid).collection("data").document("workout_plan").get()
+            if not plan_doc.exists:
+                continue
+            plan = (plan_doc.to_dict() or {}).get("plan", {})
+            day_data = plan.get(DAY_SHORT)
+            if not day_data or not day_data.get("exercises"):
+                return None
+            return {
+                "day":       DAY_SHORT,
+                "label":     day_data.get("label") or WORKOUT_LABELS.get(DAY_SHORT, DAY_SHORT.upper()),
+                "exercises": day_data["exercises"],
+            }
+        return None
     except Exception as e:
         print(f"[WARN] Could not fetch workout: {e}")
         return None
 
-    # Filter for today's day in Python (handles both text and select property types)
-    day_results = []
-    for item in results:
-        props = item["properties"]
-        day_prop = props.get("Day", {})
-        prop_type = list(day_prop.keys())[0] if day_prop else None
-        if prop_type == "select":
-            val = (day_prop.get("select") or {}).get("name", "")
-        elif prop_type == "rich_text":
-            val = ((day_prop.get("rich_text") or [{}])[0].get("text", {}).get("content", ""))
-        elif prop_type == "title":
-            val = ((day_prop.get("title") or [{}])[0].get("text", {}).get("content", ""))
-        else:
-            val = ""
-        if val.strip()[:3].lower() == DAY_SHORT.lower():
-            day_results.append(item)
-
-    if not day_results:
-        return None
-
-    exercises = []
-    for item in day_results:
-        props = item["properties"]
-        name  = (props.get("Name", {}).get("title") or [{}])[0].get("text", {}).get("content", "Untitled")
-        sets  = (props.get("Sets",  {}).get("number") or 0)
-        reps  = (props.get("Reps",  {}).get("number") or 0)
-        notes = ((props.get("Notes", {}).get("rich_text") or [{}])[0].get("text", {}).get("content", ""))
-        exercises.append({"name": name, "sets": sets, "reps": reps, "notes": notes})
-
-    return {
-        "day":       DAY_SHORT,
-        "label":     WORKOUT_LABELS.get(DAY_SHORT, DAY_SHORT.upper()),
-        "exercises": exercises,
-    }
-
 
 # ══════════════════════════════════════════
-#  NOTION — MACROS
+#  FIREBASE — MACROS
 # ══════════════════════════════════════════
 MACRO_GOALS = {
     "goal_calories": int(os.getenv("GOAL_CALORIES", 2000)),
@@ -149,28 +132,28 @@ MACRO_GOALS = {
 }
 
 def get_macros() -> dict:
+    cal = pro = carb = fat = 0
     try:
-        results = notion.databases.query(
-            database_id=os.getenv("MACROS_DB")
-        ).get("results", [])
+        snap = db.collection("users").stream()
+        for user_doc in snap:
+            uid = user_doc.id
+            food_doc = db.collection("users").document(uid).collection("food").document(TODAY_ISO).get()
+            if not food_doc.exists:
+                continue
+            for item in (food_doc.to_dict() or {}).get("items", []):
+                cal  += item.get("calories", 0)
+                pro  += item.get("protein",  0)
+                carb += item.get("carbs",    0)
+                fat  += item.get("fat",      0)
     except Exception as e:
         print(f"[WARN] Could not fetch macros: {e}")
-        results = []
-
-    cal = pro = carb = fat = 0
-    for item in results:
-        props = item["properties"]
-        cal  += props.get("Calories", {}).get("number") or 0
-        pro  += props.get("Protein",  {}).get("number") or 0
-        carb += props.get("Carbs",    {}).get("number") or 0
-        fat  += props.get("Fat",      {}).get("number") or 0
 
     return {
         **MACRO_GOALS,
-        "logged_calories": cal,
-        "logged_protein":  pro,
-        "logged_carbs":    carb,
-        "logged_fat":      fat,
+        "logged_calories": round(cal,  1),
+        "logged_protein":  round(pro,  1),
+        "logged_carbs":    round(carb, 1),
+        "logged_fat":      round(fat,  1),
     }
 
 
