@@ -407,7 +407,8 @@ function renderMacrosFromState() {
         <div class="food-search-wrap">
           <input class="food-input food-input-wide" id="foodSearchInput" type="text"
                  placeholder="Search food (e.g. Greek yogurt)..." autocomplete="off"
-                 oninput="onFoodSearchInput(this.value)" onkeydown="onFoodSearchKey(event)" />
+                 oninput="onFoodSearchInput(this.value)" onkeydown="onFoodSearchKey(event)"
+                 onblur="setTimeout(()=>{const d=document.getElementById('foodDropdown');if(d)d.style.display='none';},200)" />
           <div class="food-dropdown" id="foodDropdown"></div>
         </div>
         <div class="food-selected-info" id="foodSelectedInfo"></div>
@@ -458,8 +459,11 @@ let _dropdownIdx       = -1;
 function onFoodSearchInput(val) {
   clearTimeout(_foodSearchTimer);
   const dd = document.getElementById('foodDropdown');
-  if (!val || val.length < 2) { if (dd) dd.innerHTML = ''; return; }
-  if (dd) dd.innerHTML = '<div class="food-dd-loading">Searching...</div>';
+  if (!val || val.length < 2) {
+    if (dd) { dd.innerHTML = ''; dd.style.display = 'none'; }
+    return;
+  }
+  if (dd) { dd.innerHTML = '<div class="food-dd-loading">Searching...</div>'; dd.style.display = 'block'; }
   _foodSearchTimer = setTimeout(() => searchUSDA(val), 400);
 }
 
