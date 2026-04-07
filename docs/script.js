@@ -1343,6 +1343,7 @@ async function loadWeather() {
 async function loadDCAlerts() {
   const el      = document.getElementById('alertsValue');
   const tooltip = document.getElementById('alertsTooltip');
+  const block   = document.getElementById('intelAlerts');
   if (!el) return;
   try {
     const d = await fetch('https://api.weather.gov/alerts/active?area=DC', {
@@ -1353,6 +1354,7 @@ async function loadDCAlerts() {
       el.textContent = '✓ None active';
       el.classList.add('intel-ok');
       if (tooltip) tooltip.textContent = 'No active weather alerts for Washington DC.';
+      if (block) block.onclick = () => window.open('https://alerts.weather.gov/search?area=DC', '_blank');
     } else {
       const top = alerts[0].properties;
       el.textContent = `⚠ ${top.event}`;
@@ -1361,6 +1363,8 @@ async function loadDCAlerts() {
         const desc = top.description?.split('\n\n')[0] || top.headline || top.event;
         tooltip.textContent = desc.length > 300 ? desc.slice(0, 297) + '…' : desc;
       }
+      const url = top.web || 'https://alerts.weather.gov/search?area=DC';
+      if (block) block.onclick = () => window.open(url, '_blank');
     }
   } catch(e) { el.textContent = '—'; }
 }
@@ -1368,25 +1372,35 @@ async function loadDCAlerts() {
 async function loadNews() {
   const el = document.getElementById('newsValue');
   if (!el) return;
-  try {
-    // Fetch RSS via a CORS proxy and parse it ourselves — no third-party service needed
-    const rssUrl = 'https://feeds.bbci.co.uk/news/world/us_and_canada/rss.xml';
-    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(rssUrl)}`;
-    const xml = await fetch(proxyUrl).then(r => r.text());
+
+  const parseItems = (xml) => {
     const doc = new DOMParser().parseFromString(xml, 'text/xml');
-    const items = [...doc.querySelectorAll('item')].slice(0, 10);
+    return [...doc.querySelectorAll('item')].slice(0, 12).map(i => ({
+      title: i.querySelector('title')?.textContent?.trim() || '',
+      link:  i.querySelector('link')?.textContent?.trim() ||
+             i.querySelector('guid')?.textContent?.trim() || '#',
+    })).filter(i => i.title);
+  };
+
+  const renderItems = (items) => {
+    el.innerHTML = items.map((item, idx) =>
+      `<a href="${escHtml(item.link)}" target="_blank" rel="noopener">${escHtml(item.title)}</a>${idx < items.length - 1 ? '<span class="intel-news-sep">✦</span>' : ''}`
+    ).join('');
+  };
+
+  try {
+    const rssUrl = 'https://feeds.bbci.co.uk/news/world/us_and_canada/rss.xml';
+    const xml = await fetch(`https://corsproxy.io/?${encodeURIComponent(rssUrl)}`).then(r => r.text());
+    const items = parseItems(xml);
     if (!items.length) throw new Error('no items');
-    el.textContent = items.map(i => i.querySelector('title')?.textContent || '').filter(Boolean).join('  ✦  ');
+    renderItems(items);
   } catch(e) {
-    // fallback to AP News via different proxy
     try {
       const rssUrl2 = 'https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml';
-      const proxyUrl2 = `https://api.allorigins.win/raw?url=${encodeURIComponent(rssUrl2)}`;
-      const xml2 = await fetch(proxyUrl2).then(r => r.text());
-      const doc2 = new DOMParser().parseFromString(xml2, 'text/xml');
-      const items2 = [...doc2.querySelectorAll('item')].slice(0, 10);
+      const xml2 = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(rssUrl2)}`).then(r => r.text());
+      const items2 = parseItems(xml2);
       if (!items2.length) throw new Error('no items');
-      el.textContent = items2.map(i => i.querySelector('title')?.textContent || '').filter(Boolean).join('  ✦  ');
+      renderItems(items2);
     } catch(e2) {
       el.textContent = 'NEWS FEED UNAVAILABLE — CHECK BACK LATER';
     }

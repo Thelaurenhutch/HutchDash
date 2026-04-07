@@ -178,7 +178,7 @@ body::before {
 }
 .intel-strip-inner {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1fr 2fr 1fr;
   border: var(--border);
   background: var(--brown);
   box-shadow: var(--shadow);
@@ -214,11 +214,12 @@ body::before {
 .intel-warn-red   { color: #ff7a7a !important; }
 .intel-warn-yellow{ color: var(--gold) !important; }
 
-/* Alert hover tooltip */
+/* Alert hover tooltip + clickable */
 .intel-alerts {
   position: relative;
-  cursor: default;
+  cursor: pointer;
 }
+.intel-alerts:hover .intel-value { text-decoration: underline; }
 .intel-tooltip {
   display: none;
   position: absolute;
@@ -247,20 +248,32 @@ body::before {
   mask-image: linear-gradient(to right, transparent, black 6%, black 94%, transparent);
   -webkit-mask-image: linear-gradient(to right, transparent, black 6%, black 94%, transparent);
 }
-.intel-news-scroll span {
+.intel-news-inner {
   display: inline-block;
+  white-space: nowrap;
+  animation: intel-scroll 60s linear infinite;
+  padding-left: 100%;
+}
+.intel-news-scroll:hover .intel-news-inner { animation-play-state: paused; }
+.intel-news-inner a {
   font-family: 'Courier Prime', monospace;
   font-size: 0.68rem;
   color: var(--cream);
-  white-space: nowrap;
-  animation: intel-scroll 50s linear infinite;
-  padding-left: 100%;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.intel-news-inner a:hover { color: var(--gold); text-decoration: underline; }
+.intel-news-sep {
+  color: var(--gold);
+  opacity: 0.6;
+  margin: 0 10px;
+  font-size: 0.65rem;
 }
 @keyframes intel-scroll {
   from { transform: translateX(0); }
   to   { transform: translateX(-100%); }
 }
-.intel-news-scroll:hover span { animation-play-state: paused; }
 
 /* ── MAIN GRID ── */
 .dashboard-grid {
