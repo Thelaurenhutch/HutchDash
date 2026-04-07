@@ -404,9 +404,19 @@ function renderMacrosFromState() {
       <button class="food-add-btn" id="foodToggleBtn" onclick="toggleFoodForm()">+ LOG FOOD</button>
       <div class="food-form" id="foodForm">
         <div class="food-form-title">NEW FOOD ENTRY</div>
-        <input class="food-input food-input-wide" id="foodName" type="text"
-               placeholder="Food name (e.g. Chicken breast)" autocomplete="off" />
+        <div class="food-search-wrap">
+          <input class="food-input food-input-wide" id="foodSearchInput" type="text"
+                 placeholder="Search food (e.g. Greek yogurt)..." autocomplete="off"
+                 oninput="onFoodSearchInput(this.value)" onkeydown="onFoodSearchKey(event)" />
+          <div class="food-dropdown" id="foodDropdown"></div>
+        </div>
+        <div class="food-selected-info" id="foodSelectedInfo"></div>
         <div class="food-input-row">
+          <div class="food-input-group">
+            <label class="food-input-label">SERVING (g)</label>
+            <input class="food-input" id="foodServing" type="number" placeholder="100" min="1"
+                   oninput="onServingChange()" />
+          </div>
           <div class="food-input-group">
             <label class="food-input-label">CAL</label>
             <input class="food-input" id="foodCal" type="number" placeholder="0" min="0" />
@@ -431,22 +441,149 @@ function renderMacrosFromState() {
   body.innerHTML = barsHtml + totalHtml + foodListHtml + formHtml;
 }
 
+// ══════════════════════════════════════════
+//  FOOD SEARCH — USDA FoodData Central
+// ══════════════════════════════════════════
+const USDA_KEY         = 'xmDNgaI8ze5h5oVNPc1ApvZBil3ezcKbd72xO9T0';
+const USDA_SEARCH      = 'https://api.nal.usda.gov/fdc/v1/foods/search';
+const USDA_DETAIL      = 'https://api.nal.usda.gov/fdc/v1/food/';
+const NUTRIENT_IDS     = { cal: 1008, pro: 1003, carb: 1005, fat: 1004 };
+
+let _foodSearchTimer   = null;
+let _foodPer100        = null;  // { cal, pro, carb, fat } per 100g for selected food
+let _foodSelectedName  = '';
+let _dropdownItems     = [];
+let _dropdownIdx       = -1;
+
+function onFoodSearchInput(val) {
+  clearTimeout(_foodSearchTimer);
+  const dd = document.getElementById('foodDropdown');
+  if (!val || val.length < 2) { if (dd) dd.innerHTML = ''; return; }
+  if (dd) dd.innerHTML = '<div class="food-dd-loading">Searching...</div>';
+  _foodSearchTimer = setTimeout(() => searchUSDA(val), 400);
+}
+
+async function searchUSDA(query) {
+  const dd = document.getElementById('foodDropdown');
+  try {
+    const resp = await fetch(`${USDA_SEARCH}?query=${encodeURIComponent(query)}&pageSize=8&dataType=Survey%20(FNDDS),SR%20Legacy,Foundation&api_key=${USDA_KEY}`);
+    const data = await resp.json();
+    _dropdownItems = data.foods || [];
+    _dropdownIdx   = -1;
+    renderDropdown(_dropdownItems);
+  } catch(e) {
+    if (dd) dd.innerHTML = '<div class="food-dd-loading">Search failed. Try again.</div>';
+  }
+}
+
+function renderDropdown(foods) {
+  const dd = document.getElementById('foodDropdown');
+  if (!dd) return;
+  if (!foods.length) { dd.innerHTML = '<div class="food-dd-loading">No results found.</div>'; return; }
+  dd.innerHTML = foods.map((f, i) => {
+    const brand = f.brandOwner ? ` <span class="food-dd-brand">${escHtml(f.brandOwner)}</span>` : '';
+    return `<div class="food-dd-item" data-idx="${i}" onmousedown="selectFoodFromDropdown(${i})">${escHtml(f.description)}${brand}</div>`;
+  }).join('');
+  dd.style.display = 'block';
+}
+
+function onFoodSearchKey(e) {
+  const items = document.querySelectorAll('.food-dd-item');
+  if (!items.length) return;
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    _dropdownIdx = Math.min(_dropdownIdx + 1, items.length - 1);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    _dropdownIdx = Math.max(_dropdownIdx - 1, 0);
+  } else if (e.key === 'Enter' && _dropdownIdx >= 0) {
+    e.preventDefault();
+    selectFoodFromDropdown(_dropdownIdx);
+    return;
+  } else if (e.key === 'Escape') {
+    document.getElementById('foodDropdown').innerHTML = '';
+    return;
+  }
+  items.forEach((el, i) => el.classList.toggle('food-dd-active', i === _dropdownIdx));
+}
+
+async function selectFoodFromDropdown(idx) {
+  const food = _dropdownItems[idx];
+  if (!food) return;
+
+  // Hide dropdown, show loading
+  const dd   = document.getElementById('foodDropdown');
+  const info = document.getElementById('foodSelectedInfo');
+  if (dd)   dd.innerHTML = '';
+  if (info) info.innerHTML = '<span class="food-selected-loading">Loading macros...</span>';
+
+  _foodSelectedName = food.description;
+  document.getElementById('foodSearchInput').value = food.description;
+
+  try {
+    const resp = await fetch(`${USDA_DETAIL}${food.fdcId}?api_key=${USDA_KEY}`);
+    const detail = await resp.json();
+
+    // Extract per-100g nutrients
+    const n = {};
+    for (const item of (detail.foodNutrients || [])) {
+      const nid = item.nutrient?.id || item.nutrientId;
+      const val = item.amount ?? item.value ?? 0;
+      for (const [key, tid] of Object.entries(NUTRIENT_IDS)) {
+        if (nid === tid) n[key] = Math.round(val * 10) / 10;
+      }
+    }
+    _foodPer100 = { cal: n.cal||0, pro: n.pro||0, carb: n.carb||0, fat: n.fat||0 };
+
+    // Set default serving to 100g and fill fields
+    document.getElementById('foodServing').value = 100;
+    fillMacroFields(100);
+
+    if (info) info.innerHTML = `
+      <span class="food-selected-name">✔ ${escHtml(food.description)}</span>
+      <span class="food-selected-per">Per 100g: ${_foodPer100.cal}kcal · ${_foodPer100.pro}g P · ${_foodPer100.carb}g C · ${_foodPer100.fat}g F</span>`;
+  } catch(e) {
+    if (info) info.innerHTML = '<span class="food-selected-loading">Could not load macros.</span>';
+  }
+}
+
+function fillMacroFields(grams) {
+  if (!_foodPer100) return;
+  const m = grams / 100;
+  document.getElementById('foodCal').value  = Math.round(_foodPer100.cal  * m * 10) / 10;
+  document.getElementById('foodPro').value  = Math.round(_foodPer100.pro  * m * 10) / 10;
+  document.getElementById('foodCarb').value = Math.round(_foodPer100.carb * m * 10) / 10;
+  document.getElementById('foodFat').value  = Math.round(_foodPer100.fat  * m * 10) / 10;
+}
+
+function onServingChange() {
+  const g = parseFloat(document.getElementById('foodServing')?.value);
+  if (g > 0) fillMacroFields(g);
+}
+
 function toggleFoodForm() {
   const form = document.getElementById('foodForm');
   const btn  = document.getElementById('foodToggleBtn');
   if (!form) return;
   const open = form.classList.toggle('food-form-open');
   if (btn) btn.textContent = open ? '− CANCEL' : '+ LOG FOOD';
-  if (open) setTimeout(() => document.getElementById('foodName')?.focus(), 50);
+  if (open) {
+    _foodPer100 = null;
+    _foodSelectedName = '';
+    setTimeout(() => document.getElementById('foodSearchInput')?.focus(), 50);
+  }
 }
 
 function submitFood() {
-  const name = document.getElementById('foodName')?.value.trim();
-  if (!name) { document.getElementById('foodName')?.focus(); return; }
+  const name = _foodSelectedName || document.getElementById('foodSearchInput')?.value.trim();
+  if (!name) { document.getElementById('foodSearchInput')?.focus(); return; }
+
+  const serving = parseFloat(document.getElementById('foodServing')?.value) || 100;
+  const label   = _foodSelectedName ? `${name} (${serving}g)` : name;
 
   const entry = {
     id:   Date.now(),
-    name,
+    name: label,
     cal:  parseFloat(document.getElementById('foodCal')?.value)  || 0,
     pro:  parseFloat(document.getElementById('foodPro')?.value)  || 0,
     carb: parseFloat(document.getElementById('foodCarb')?.value) || 0,
@@ -455,6 +592,8 @@ function submitFood() {
   const log = getTodayFoodLog();
   log.push(entry);
   saveTodayFoodLog(log);
+  _foodPer100 = null;
+  _foodSelectedName = '';
   renderMacrosFromState();
 }
 
