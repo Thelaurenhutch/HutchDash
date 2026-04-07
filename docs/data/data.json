@@ -1,39 +1,37 @@
 {
-  "generated_at": "2026-04-07T06:00:00",
-  "date": "Tuesday, April 7, 2026",
+  "generated_at": "2026-04-07T18:18:02",
+  "date": "Tuesday, April 07, 2026",
   "day_of_week": "Tue",
-  "todos": [
-    { "id": "1", "name": "Review project proposal", "priority": "High", "due": "2026-04-07", "done": false },
-    { "id": "2", "name": "Call Dr. Hoffman", "priority": "High", "due": "2026-04-07", "done": false },
-    { "id": "3", "name": "Order groceries", "priority": "Medium", "due": "2026-04-07", "done": false },
-    { "id": "4", "name": "Read 20 pages", "priority": "Low", "due": "2026-04-07", "done": false },
-    { "id": "5", "name": "Respond to emails", "priority": "Medium", "due": "2026-04-07", "done": false }
-  ],
-  "workout": {
-    "day": "Tue",
-    "label": "UPPER BODY",
-    "exercises": [
-      { "name": "Rows", "sets": 3, "reps": 20, "notes": "13-14 lbs, higher reps" },
-      { "name": "Overhead Press", "sets": 3, "reps": 20, "notes": "13-14 lbs, higher reps" },
-      { "name": "Bicep Curls", "sets": 3, "reps": 15, "notes": "13-14 lbs, slow and controlled" },
-      { "name": "Lateral Raises", "sets": 3, "reps": 15, "notes": "7-8 lbs, plates off" },
-      { "name": "Tricep Extension", "sets": 3, "reps": 15, "notes": "7-8 lbs, plates off" }
-    ]
-  },
+  "todos": [],
+  "workout": null,
   "macros": {
     "goal_calories": 2000,
     "goal_protein": 150,
     "goal_carbs": 200,
     "goal_fat": 65,
-    "logged_calories": 1420,
-    "logged_protein": 112,
-    "logged_carbs": 138,
-    "logged_fat": 44
+    "logged_calories": 0,
+    "logged_protein": 0,
+    "logged_carbs": 0,
+    "logged_fat": 0
   },
   "calendar": [
-    { "time": "9:00 AM", "title": "Team Standup", "source": "outlook", "color": "#5B7FA6" },
-    { "time": "11:30 AM", "title": "Dentist Appointment", "source": "apple", "color": "#C65D52" },
-    { "time": "2:00 PM", "title": "Project Review", "source": "outlook", "color": "#5B7FA6" },
-    { "time": "6:00 PM", "title": "Dinner with Mom", "source": "apple", "color": "#6B9F78" }
+    {
+      "time": "11:00 AM",
+      "title": "Rosie Groomer",
+      "source": "apple",
+      "color": "#6B9F78"
+    },
+    {
+      "time": "1:00 PM",
+      "title": "Lunar flyby?? ",
+      "source": "apple",
+      "color": "#6B9F78"
+    },
+    {
+      "time": "All Day",
+      "title": "See if can get Olympics tickets",
+      "source": "apple",
+      "color": "#6B9F78"
+    }
   ]
 }

@@ -30,9 +30,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           pip install --upgrade pip
-          pip install notion-client python-dotenv
-          pip install requests icalendar pytz || true
-          pip install caldav || true
+          pip install -r requirements.txt
 
       # ── 4. Run the data generator ──
       - name: Generate dashboard data

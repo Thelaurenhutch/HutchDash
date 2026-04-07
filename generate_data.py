@@ -9,7 +9,7 @@ Runs nightly:  via .github/workflows/daily-refresh.yml
 
 import json
 import os
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 from notion_client import Client
@@ -47,12 +47,7 @@ OUT_PATH = Path(__file__).parent / "docs" / "data" / "data.json"
 def get_todos() -> list:
     try:
         results = notion.databases.query(
-            database_id=os.getenv("TODOS_DB"),
-            filter={
-                "and": [
-                    {"property": "Status", "checkbox": {"equals": False}},
-                ]
-            }
+            database_id=os.getenv("TODOS_DB")
         ).get("results", [])
     except Exception as e:
         print(f"[WARN] Could not fetch todos: {e}")
@@ -64,6 +59,13 @@ def get_todos() -> list:
         name     = (props.get("Name", {}).get("title") or [{}])[0].get("text", {}).get("content", "Untitled")
         priority = (props.get("Priority", {}).get("select") or {}).get("name", "None")
         due_raw  = (props.get("Due Date", {}).get("date") or {}).get("start")
+        # Include only items that aren't marked done via checkbox or status
+        status_prop = props.get("Status", {})
+        prop_type = list(status_prop.keys())[0] if status_prop else None
+        if prop_type == "checkbox" and status_prop["checkbox"] == True:
+            continue
+        if prop_type == "status" and (status_prop.get("status") or {}).get("name", "").lower() in ("done", "complete", "completed"):
+            continue
         todos.append({
             "id":       item["id"],
             "name":     name,
@@ -94,21 +96,34 @@ WORKOUT_LABELS = {
 def get_workout() -> dict | None:
     try:
         results = notion.databases.query(
-            database_id=os.getenv("WORKOUT_DB"),
-            filter={
-                "property": "Day",
-                "select": {"equals": DAY_SHORT}
-            }
+            database_id=os.getenv("WORKOUT_DB")
         ).get("results", [])
     except Exception as e:
         print(f"[WARN] Could not fetch workout: {e}")
         return None
 
-    if not results:
+    # Filter for today's day in Python (handles both text and select property types)
+    day_results = []
+    for item in results:
+        props = item["properties"]
+        day_prop = props.get("Day", {})
+        prop_type = list(day_prop.keys())[0] if day_prop else None
+        if prop_type == "select":
+            val = (day_prop.get("select") or {}).get("name", "")
+        elif prop_type == "rich_text":
+            val = ((day_prop.get("rich_text") or [{}])[0].get("text", {}).get("content", ""))
+        elif prop_type == "title":
+            val = ((day_prop.get("title") or [{}])[0].get("text", {}).get("content", ""))
+        else:
+            val = ""
+        if val.strip()[:3].lower() == DAY_SHORT.lower():
+            day_results.append(item)
+
+    if not day_results:
         return None
 
     exercises = []
-    for item in results:
+    for item in day_results:
         props = item["properties"]
         name  = (props.get("Name", {}).get("title") or [{}])[0].get("text", {}).get("content", "Untitled")
         sets  = (props.get("Sets",  {}).get("number") or 0)
@@ -136,11 +151,7 @@ MACRO_GOALS = {
 def get_macros() -> dict:
     try:
         results = notion.databases.query(
-            database_id=os.getenv("MACROS_DB"),
-            filter={
-                "property": "Date",
-                "date": {"equals": TODAY_ISO}
-            }
+            database_id=os.getenv("MACROS_DB")
         ).get("results", [])
     except Exception as e:
         print(f"[WARN] Could not fetch macros: {e}")
@@ -251,29 +262,39 @@ def get_apple_events() -> list:
         principal = client.principal()
         calendars = principal.calendars()
 
-        from datetime import timedelta
-        start_dt = datetime.combine(TODAY, datetime.min.time())
+        from datetime import timedelta, timezone
+        start_dt = datetime.combine(TODAY, datetime.min.time()).replace(tzinfo=timezone.utc)
         end_dt   = start_dt + timedelta(days=1)
 
         events = []
         for cal in calendars:
-            for event in cal.date_search(start=start_dt, end=end_dt, expand=True):
-                comp = event.instance.vevent
-                dt_start = getattr(comp, 'dtstart', None)
-                if dt_start is None:
+            try:
+                cal_events = cal.search(start=start_dt, end=end_dt, event=True, expand=True)
+            except Exception:
+                cal_events = []
+            for event in cal_events:
+                try:
+                    ical = event.icalendar_instance
+                    for component in ical.walk():
+                        if component.name != 'VEVENT':
+                            continue
+                        dt_start = component.get('DTSTART')
+                        if dt_start is None:
+                            continue
+                        dt = dt_start.dt
+                        if hasattr(dt, 'hour'):
+                            time_str = dt.strftime("%I:%M %p").lstrip("0") or "12:00 AM"
+                        else:
+                            time_str = "All Day"
+                        summary = str(component.get('SUMMARY', 'Event'))
+                        events.append({
+                            "time":   time_str,
+                            "title":  summary,
+                            "source": "apple",
+                            "color":  "#6B9F78",
+                        })
+                except Exception:
                     continue
-                dt = dt_start.value
-                if hasattr(dt, 'hour'):
-                    time_str = dt.strftime("%-I:%M %p") if os.name != "nt" else dt.strftime("%I:%M %p").lstrip("0")
-                else:
-                    time_str = "All Day"
-                summary = str(getattr(comp, 'summary', 'Event'))
-                events.append({
-                    "time":   time_str,
-                    "title":  summary,
-                    "source": "apple",
-                    "color":  "#6B9F78",
-                })
         events.sort(key=lambda e: e["time"])
         return events
     except Exception as e:
@@ -313,7 +334,7 @@ def main():
     calendar = get_all_calendar_events()
 
     payload = {
-        "generated_at": datetime.utcnow().isoformat(),
+        "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S"),
         "date":         TODAY_NAME,
         "day_of_week":  DAY_SHORT,
         "todos":        todos,

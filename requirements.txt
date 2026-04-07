@@ -1,8 +1,8 @@
-# Core
-notion-client
+﻿# Core
+notion-client==2.2.1
 python-dotenv
 
-# Calendar — Outlook ICS (no app registration needed)
+# Calendar - Outlook ICS (no app registration needed)
 requests
 icalendar
 pytz
