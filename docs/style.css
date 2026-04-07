@@ -282,6 +282,25 @@ body::before {
   background: var(--cream2);
   box-shadow: var(--shadow-sm);
   position: relative;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.calendar-event:hover { filter: brightness(0.96); }
+.cal-event-done {
+  opacity: 0.45;
+}
+.cal-event-done .event-title {
+  text-decoration: line-through;
+  text-decoration-color: var(--brown);
+}
+.cal-check {
+  font-size: 0.75rem;
+  color: var(--green);
+  font-weight: bold;
+  min-width: 14px;
+  text-align: right;
+  align-self: center;
+  flex-shrink: 0;
 }
 
 .event-time {
@@ -325,6 +344,83 @@ body::before {
   text-align: center;
   padding: 1rem 0;
 }
+
+/* ════════════════════════════════
+   MACRO GOALS SETTINGS PANEL
+════════════════════════════════ */
+.macro-settings-btn {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.45);
+  color: var(--cream);
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.4rem;
+  padding: 4px 8px;
+  cursor: pointer;
+  margin-left: auto;
+  margin-right: 0.5rem;
+  letter-spacing: 0.05em;
+  border-radius: 2px;
+  transition: background 0.15s;
+}
+.macro-settings-btn:hover { background: rgba(255,255,255,0.18); }
+.macro-settings-panel {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease, padding 0.3s ease;
+  background: var(--cream);
+  border-bottom: 2px solid var(--brown);
+  padding: 0 1rem;
+}
+.macro-settings-panel.macro-settings-open {
+  max-height: 180px;
+  padding: 0.75rem 1rem;
+}
+.macro-settings-title {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.45rem;
+  color: var(--brown);
+  margin-bottom: 0.6rem;
+  letter-spacing: 0.05em;
+}
+.macro-settings-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+.macro-settings-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.macro-settings-label {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.38rem;
+  color: var(--brown);
+  opacity: 0.75;
+}
+.macro-settings-input {
+  background: var(--cream);
+  border: 2px solid var(--brown);
+  color: var(--brown);
+  font-family: 'Courier Prime', monospace;
+  font-size: 0.9rem;
+  padding: 4px 6px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.macro-settings-save {
+  background: var(--green);
+  border: 2px solid var(--brown);
+  color: var(--cream);
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.45rem;
+  padding: 6px 14px;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  transition: filter 0.15s;
+}
+.macro-settings-save:hover { filter: brightness(1.12); }
 
 /* ════════════════════════════════
    WORKOUT — SET COUNTER

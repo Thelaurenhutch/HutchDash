@@ -18,6 +18,7 @@ const getTodayStr = () => new Date().toISOString().slice(0, 10);
 let _db         = null;
 let _currentUid = null;
 let _unsubWorkout = null, _unsubFood = null, _unsubTodos = null;
+let _unsubCalDone = null, _unsubMacroGoals = null;
 
 // In-memory state — pre-loaded from localStorage, then overridden by Firestore
 const _today = getTodayStr();
@@ -52,24 +53,56 @@ const fmtDate = (isoStr) => {
 // ══════════════════════════════════════════
 //  CALENDAR
 // ══════════════════════════════════════════
+let _calEvents    = [];
+let _calDoneState = (() => {
+  try { return JSON.parse(localStorage.getItem('hutch_cal_done_' + getTodayStr()) || '{}'); }
+  catch { return {}; }
+})();
+
+function saveCalDoneState(state) {
+  _calDoneState = state;
+  localStorage.setItem('hutch_cal_done_' + getTodayStr(), JSON.stringify(state));
+  if (_db && _currentUid) {
+    _db.collection('users').doc(_currentUid)
+       .collection('calendar').doc(getTodayStr())
+       .set({ done: state }).catch(console.error);
+  }
+}
+
 function renderCalendar(events) {
-  const body = document.getElementById('calendarBody');
+  _calEvents = events || [];
+  renderCalendarFromState();
+}
+
+function renderCalendarFromState() {
+  const body   = document.getElementById('calendarBody');
+  const events = _calEvents;
 
   if (!events || events.length === 0) {
     body.innerHTML = `<p class="no-events">No events scheduled today.</p>`;
     return;
   }
 
-  body.innerHTML = events.map(ev => `
-    <div class="calendar-event">
+  body.innerHTML = events.map((ev, idx) => {
+    const done = !!_calDoneState[String(idx)];
+    return `
+    <div class="calendar-event${done ? ' cal-event-done' : ''}" onclick="toggleCalEvent(${idx})">
       <span class="event-time">${escHtml(ev.time)}</span>
       <div class="event-dot" style="background:${ev.color || '#5B7FA6'}; border-color:var(--brown);"></div>
       <div style="flex:1; min-width:0;">
         <span class="event-title">${escHtml(ev.title)}</span>
         <span class="event-source">${escHtml(ev.source || '')}</span>
       </div>
-    </div>
-  `).join('');
+      <div class="cal-check">${done ? '✔' : ''}</div>
+    </div>`;
+  }).join('');
+}
+
+function toggleCalEvent(idx) {
+  const state = { ..._calDoneState };
+  state[String(idx)] = !state[String(idx)];
+  saveCalDoneState(state);
+  renderCalendarFromState();
 }
 
 // ══════════════════════════════════════════
@@ -180,6 +213,46 @@ function resetWorkout() {
 //  MACROS — FOOD LOG (localStorage)
 // ══════════════════════════════════════════
 let _baseMacros = null;
+// Persistent macro goals (not per-day — survives across days)
+let _macroGoals = (() => {
+  try { return JSON.parse(localStorage.getItem('hutch_macro_goals') || 'null'); }
+  catch { return null; }
+})();
+
+function toggleMacroSettings() {
+  const panel = document.getElementById('macroSettingsPanel');
+  if (!panel) return;
+  const open = panel.classList.toggle('macro-settings-open');
+  if (open) {
+    const g = _macroGoals || (_baseMacros ? {
+      cal: _baseMacros.goal_calories, pro: _baseMacros.goal_protein,
+      carb: _baseMacros.goal_carbs,  fat: _baseMacros.goal_fat
+    } : {});
+    document.getElementById('gsCalories').value = g.cal  || '';
+    document.getElementById('gsProtein').value  = g.pro  || '';
+    document.getElementById('gsCarbs').value    = g.carb || '';
+    document.getElementById('gsFat').value      = g.fat  || '';
+    setTimeout(() => document.getElementById('gsCalories')?.focus(), 50);
+  }
+}
+
+function saveMacroSettings() {
+  const goals = {
+    cal:  parseFloat(document.getElementById('gsCalories')?.value) || 0,
+    pro:  parseFloat(document.getElementById('gsProtein')?.value)  || 0,
+    carb: parseFloat(document.getElementById('gsCarbs')?.value)    || 0,
+    fat:  parseFloat(document.getElementById('gsFat')?.value)      || 0,
+  };
+  _macroGoals = goals;
+  localStorage.setItem('hutch_macro_goals', JSON.stringify(goals));
+  if (_db && _currentUid) {
+    _db.collection('users').doc(_currentUid)
+       .collection('settings').doc('macros')
+       .set(goals).catch(console.error);
+  }
+  document.getElementById('macroSettingsPanel')?.classList.remove('macro-settings-open');
+  renderMacrosFromState();
+}
 
 function getTodayFoodLog()     { return _foodLog; }
 
@@ -218,11 +291,17 @@ function renderMacrosFromState() {
     fat:  (macros.logged_fat      || 0) + extra.fat,
   };
 
+  const goals = _macroGoals || {
+    cal:  macros.goal_calories,
+    pro:  macros.goal_protein,
+    carb: macros.goal_carbs,
+    fat:  macros.goal_fat,
+  };
   const stats = [
-    { label: 'CALORIES', unit: 'kcal', cls: 'cal',  logged: totals.cal,  goal: macros.goal_calories },
-    { label: 'PROTEIN',  unit: 'g',    cls: 'pro',  logged: totals.pro,  goal: macros.goal_protein  },
-    { label: 'CARBS',    unit: 'g',    cls: 'carb', logged: totals.carb, goal: macros.goal_carbs    },
-    { label: 'FAT',      unit: 'g',    cls: 'fat',  logged: totals.fat,  goal: macros.goal_fat      },
+    { label: 'CALORIES', unit: 'kcal', cls: 'cal',  logged: totals.cal,  goal: goals.cal  },
+    { label: 'PROTEIN',  unit: 'g',    cls: 'pro',  logged: totals.pro,  goal: goals.pro  },
+    { label: 'CARBS',    unit: 'g',    cls: 'carb', logged: totals.carb, goal: goals.carb },
+    { label: 'FAT',      unit: 'g',    cls: 'fat',  logged: totals.fat,  goal: goals.fat  },
   ];
 
   const barsHtml = stats.map(s => {
@@ -497,12 +576,36 @@ function setupFirestoreListeners() {
         if (_currentTodos.length > 0) renderTodosFromState();
       }
     }, e => console.warn('[HUTCHDASH] Todos listener:', e));
+
+  _unsubCalDone = base.collection('calendar').doc(today)
+    .onSnapshot(snap => {
+      if (!snap.exists) return;
+      const done = snap.data().done || {};
+      if (JSON.stringify(done) !== JSON.stringify(_calDoneState)) {
+        _calDoneState = done;
+        localStorage.setItem('hutch_cal_done_' + today, JSON.stringify(done));
+        renderCalendarFromState();
+      }
+    }, e => console.warn('[HUTCHDASH] Calendar listener:', e));
+
+  _unsubMacroGoals = base.collection('settings').doc('macros')
+    .onSnapshot(snap => {
+      if (!snap.exists) return;
+      const g = snap.data();
+      if (JSON.stringify(g) !== JSON.stringify(_macroGoals)) {
+        _macroGoals = g;
+        localStorage.setItem('hutch_macro_goals', JSON.stringify(g));
+        if (_baseMacros) renderMacrosFromState();
+      }
+    }, e => console.warn('[HUTCHDASH] MacroGoals listener:', e));
 }
 
 function teardownListeners() {
-  if (_unsubWorkout) { _unsubWorkout(); _unsubWorkout = null; }
-  if (_unsubFood)    { _unsubFood();    _unsubFood    = null; }
-  if (_unsubTodos)   { _unsubTodos();   _unsubTodos   = null; }
+  if (_unsubWorkout)   { _unsubWorkout();   _unsubWorkout   = null; }
+  if (_unsubFood)      { _unsubFood();      _unsubFood      = null; }
+  if (_unsubTodos)     { _unsubTodos();     _unsubTodos     = null; }
+  if (_unsubCalDone)   { _unsubCalDone();   _unsubCalDone   = null; }
+  if (_unsubMacroGoals){ _unsubMacroGoals(); _unsubMacroGoals = null; }
 }
 
 function updateAuthUI(user) {
