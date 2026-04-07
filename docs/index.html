@@ -39,7 +39,7 @@
     <div class="ticker-inner">
       <span class="ticker-label">LAST SYNCED:</span>
       <span id="lastSynced">—</span>
-      &nbsp;★&nbsp; MISSION STATUS: ACTIVE &nbsp;★&nbsp; AGENT: 00-HUTCH &nbsp;★&nbsp; CLEARANCE: LEVEL 5
+      &nbsp;★&nbsp; MISSION STATUS: ACTIVE &nbsp;★&nbsp; AGENT: HUTCH &nbsp;★&nbsp; CLEARANCE: LEVEL 5
     </div>
   </div>
 
@@ -54,6 +54,37 @@
         <img class="auth-avatar" id="authAvatar" src="" alt="" style="display:none;" />
         <button class="auth-btn" id="authBtn" onclick="signInWithGoogle()">SIGN IN WITH GOOGLE</button>
       </div>
+    </div>
+  </div>
+
+  <!-- INTEL STRIP -->
+  <div class="intel-strip" id="intelStrip">
+    <div class="intel-strip-inner">
+
+      <!-- Weather -->
+      <div class="intel-block intel-weather" id="intelWeather">
+        <span class="intel-label">WEATHER</span>
+        <span class="intel-value" id="weatherValue">LOADING…</span>
+      </div>
+
+      <div class="intel-sep">★</div>
+
+      <!-- DC Alerts -->
+      <div class="intel-block intel-alerts" id="intelAlerts">
+        <span class="intel-label">DC ALERTS</span>
+        <span class="intel-value" id="alertsValue">CHECKING…</span>
+      </div>
+
+      <div class="intel-sep">★</div>
+
+      <!-- Breaking News ticker -->
+      <div class="intel-block intel-news">
+        <span class="intel-label">INTEL</span>
+        <div class="intel-news-scroll" id="intelNewsScroll">
+          <span id="newsValue">LOADING FEED…</span>
+        </div>
+      </div>
+
     </div>
   </div>
 

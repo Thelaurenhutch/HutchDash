@@ -1252,6 +1252,7 @@ function signOutUser() {
 async function init() {
   setupTicker();
   initFirebase();
+  loadIntelStrip();
 
   let data;
   try {
@@ -1274,11 +1275,11 @@ async function init() {
   const dateEl = document.getElementById('headerDate');
   if (dateEl) dateEl.textContent = data.date || new Date().toDateString();
 
-  // ── Last Synced ──
+  // ── Last Synced — update to right now ──
   const syncEl = document.getElementById('lastSynced');
-  if (syncEl && data.generated_at) {
-    const d = new Date(data.generated_at);
-    syncEl.textContent = d.toLocaleString('en-US', {
+  if (syncEl) {
+    const now = new Date();
+    syncEl.textContent = now.toLocaleString('en-US', {
       month: 'short', day: 'numeric',
       hour: '2-digit', minute: '2-digit',
     });
@@ -1300,6 +1301,81 @@ function escHtml(str) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#x27;');
+}
+
+// ══════════════════════════════════════════
+//  INTEL STRIP — Weather, DC Alerts, News
+// ══════════════════════════════════════════
+
+const DC_LAT = 38.9072;
+const DC_LON = -77.0369;
+
+const WMO_CODES = {
+  0:'Clear', 1:'Mostly Clear', 2:'Partly Cloudy', 3:'Overcast',
+  45:'Foggy', 48:'Icy Fog', 51:'Light Drizzle', 53:'Drizzle', 55:'Heavy Drizzle',
+  61:'Light Rain', 63:'Rain', 65:'Heavy Rain', 71:'Light Snow', 73:'Snow', 75:'Heavy Snow',
+  80:'Showers', 81:'Showers', 82:'Heavy Showers', 95:'Thunderstorm', 99:'Thunderstorm'
+};
+
+function getWeatherIcon(code) {
+  if (code === 0) return '☀️';
+  if (code <= 2)  return '🌤';
+  if (code === 3) return '☁️';
+  if (code <= 48) return '🌫';
+  if (code <= 65) return '🌧';
+  if (code <= 77) return '❄️';
+  if (code <= 82) return '🌦';
+  return '⛈';
+}
+
+async function loadWeather() {
+  const el = document.getElementById('weatherValue');
+  if (!el) return;
+  try {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${DC_LAT}&longitude=${DC_LON}&current=temperature_2m,weathercode,windspeed_10m&temperature_unit=fahrenheit&windspeed_unit=mph&timezone=America%2FNew_York`;
+    const d = await fetch(url).then(r => r.json());
+    const c = d.current;
+    const desc = WMO_CODES[c.weathercode] || 'Unknown';
+    el.textContent = `${getWeatherIcon(c.weathercode)} ${Math.round(c.temperature_2m)}°F · ${desc} · ${Math.round(c.windspeed_10m)} mph`;
+  } catch(e) { el.textContent = '⚠ Unavailable'; }
+}
+
+async function loadDCAlerts() {
+  const el = document.getElementById('alertsValue');
+  if (!el) return;
+  try {
+    const d = await fetch('https://api.weather.gov/alerts/active?area=DC', {
+      headers: { 'Accept': 'application/geo+json' }
+    }).then(r => r.json());
+    const alerts = (d.features || []).filter(f => f.properties?.severity !== 'Unknown');
+    if (alerts.length === 0) {
+      el.textContent = '✓ None active';
+      el.classList.add('intel-ok');
+    } else {
+      const top = alerts[0].properties;
+      el.textContent = `⚠ ${top.event}`;
+      el.classList.add(top.severity === 'Extreme' || top.severity === 'Severe' ? 'intel-warn-red' : 'intel-warn-yellow');
+    }
+  } catch(e) { el.textContent = '—'; }
+}
+
+async function loadNews() {
+  const el = document.getElementById('newsValue');
+  if (!el) return;
+  try {
+    const feed = encodeURIComponent('https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml');
+    const d = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${feed}&count=8`).then(r => r.json());
+    if (d.status !== 'ok' || !d.items?.length) throw new Error('bad feed');
+    el.textContent = d.items.map(i => i.title).join('  ✦  ');
+  } catch(e) {
+    el.textContent = 'NEWS FEED UNAVAILABLE';
+  }
+}
+
+function loadIntelStrip() {
+  loadWeather();
+  loadDCAlerts();
+  loadNews();
 }
 
 document.addEventListener('DOMContentLoaded', init);
