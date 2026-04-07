@@ -17,10 +17,12 @@ from dotenv import load_dotenv
 
 # ── Optional calendar imports (skip gracefully if not configured) ──
 try:
-    import msal                          # pip install msal
-    MSAL_AVAILABLE = True
+    import requests                      # pip install requests
+    from icalendar import Calendar       # pip install icalendar
+    import pytz                          # pip install pytz
+    ICS_AVAILABLE = True
 except ImportError:
-    MSAL_AVAILABLE = False
+    ICS_AVAILABLE = False
 
 try:
     import caldav                        # pip install caldav
@@ -162,59 +164,69 @@ def get_macros() -> dict:
 
 
 # ══════════════════════════════════════════
-#  OUTLOOK CALENDAR (Microsoft Graph)
-#  Requires: pip install msal requests
-#  Set env vars: OUTLOOK_CLIENT_ID, OUTLOOK_CLIENT_SECRET,
-#               OUTLOOK_TENANT_ID (for work) or use "consumers"
+#  OUTLOOK CALENDAR (Published ICS URL)
+#  No IT admin or app registration needed.
+#  Requires: pip install requests icalendar pytz
+#
+#  HOW TO GET YOUR ICS URL:
+#  1. Go to outlook.office.com → Calendar
+#  2. Settings (gear) → View all Outlook settings
+#  3. Calendar → Shared calendars
+#  4. "Publish a calendar" → Calendar → Can view all details
+#  5. Click Publish → copy the ICS link
+#  Set env var: OUTLOOK_ICS_URL=https://outlook.office365.com/owa/...
 # ══════════════════════════════════════════
 def get_outlook_events() -> list:
-    if not MSAL_AVAILABLE:
+    if not ICS_AVAILABLE:
         return []
-    client_id     = os.getenv("OUTLOOK_CLIENT_ID")
-    client_secret = os.getenv("OUTLOOK_CLIENT_SECRET")
-    tenant_id     = os.getenv("OUTLOOK_TENANT_ID", "consumers")
-    if not (client_id and client_secret):
-        print("[INFO] Outlook credentials not set — skipping.")
+    ics_url = os.getenv("OUTLOOK_ICS_URL")
+    if not ics_url:
+        print("[INFO] OUTLOOK_ICS_URL not set — skipping.")
         return []
 
     try:
-        import requests
-        app = msal.ConfidentialClientApplication(
-            client_id,
-            authority=f"https://login.microsoftonline.com/{tenant_id}",
-            client_credential=client_secret,
-        )
-        token_resp = app.acquire_token_for_client(
-            scopes=["https://graph.microsoft.com/.default"]
-        )
-        access_token = token_resp.get("access_token")
-        if not access_token:
-            print("[WARN] Outlook token acquisition failed.")
-            return []
-
-        start = f"{TODAY_ISO}T00:00:00Z"
-        end   = f"{TODAY_ISO}T23:59:59Z"
-        url   = (
-            f"https://graph.microsoft.com/v1.0/me/calendarView"
-            f"?startDateTime={start}&endDateTime={end}"
-            f"&$orderby=start/dateTime&$top=20"
-            f"&$select=subject,start,end"
-        )
-        headers = {"Authorization": f"Bearer {access_token}"}
-        resp = requests.get(url, headers=headers)
+        resp = requests.get(ics_url, timeout=15)
         resp.raise_for_status()
-        events = []
-        for ev in resp.json().get("value", []):
-            dt  = datetime.fromisoformat(ev["start"]["dateTime"].rstrip("Z"))
+        cal = Calendar.from_ical(resp.content)
+
+        local_tz  = pytz.timezone(os.getenv("TZ", "America/Chicago"))
+        today_loc = datetime.now(local_tz).date()
+        events    = []
+
+        for component in cal.walk():
+            if component.name != "VEVENT":
+                continue
+            dtstart = component.get("DTSTART")
+            if dtstart is None:
+                continue
+            dt = dtstart.dt
+            # All-day events are date objects; timed events are datetime
+            if isinstance(dt, datetime):
+                if dt.tzinfo:
+                    dt = dt.astimezone(local_tz)
+                if dt.date() != today_loc:
+                    continue
+                time_str = dt.strftime("%I:%M %p").lstrip("0") or "12:00 AM"
+            else:
+                if dt != today_loc:
+                    continue
+                time_str = "All Day"
+
+            summary = str(component.get("SUMMARY", "Event"))
             events.append({
-                "time":   dt.strftime("%-I:%M %p") if os.name != "nt" else dt.strftime("%I:%M %p").lstrip("0"),
-                "title":  ev["subject"],
+                "time":   time_str,
+                "title":  summary,
                 "source": "outlook",
                 "color":  "#5B7FA6",
             })
+
+        events.sort(key=lambda e: (
+            datetime.strptime(e["time"], "%I:%M %p")
+            if e["time"] != "All Day" else datetime.min
+        ))
         return events
     except Exception as e:
-        print(f"[WARN] Outlook calendar error: {e}")
+        print(f"[WARN] Outlook ICS error: {e}")
         return []
 
 

@@ -2,9 +2,10 @@
 notion-client
 python-dotenv
 
-# Optional: Outlook / Microsoft Graph
-msal
+# Calendar — Outlook ICS (no app registration needed)
 requests
+icalendar
+pytz
 
 # Optional: Apple Calendar (iCloud CalDAV)
 caldav

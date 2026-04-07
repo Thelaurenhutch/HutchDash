@@ -31,9 +31,7 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install notion-client python-dotenv
-          # Optional: Outlook calendar support
-          pip install msal requests || true
-          # Optional: Apple calendar support
+          pip install requests icalendar pytz || true
           pip install caldav || true
 
       # ── 4. Run the data generator ──
@@ -48,10 +46,9 @@ jobs:
           GOAL_PROTEIN:        ${{ secrets.GOAL_PROTEIN }}
           GOAL_CARBS:          ${{ secrets.GOAL_CARBS }}
           GOAL_FAT:            ${{ secrets.GOAL_FAT }}
-          # Outlook calendar (optional)
-          OUTLOOK_CLIENT_ID:     ${{ secrets.OUTLOOK_CLIENT_ID }}
-          OUTLOOK_CLIENT_SECRET: ${{ secrets.OUTLOOK_CLIENT_SECRET }}
-          OUTLOOK_TENANT_ID:     ${{ secrets.OUTLOOK_TENANT_ID }}
+          # Outlook ICS (no app registration needed)
+          OUTLOOK_ICS_URL:     ${{ secrets.OUTLOOK_ICS_URL }}
+          TZ:                  America/Chicago
           # Apple CalDAV (optional)
           APPLE_CALDAV_URL:    ${{ secrets.APPLE_CALDAV_URL }}
           APPLE_USERNAME:      ${{ secrets.APPLE_USERNAME }}
