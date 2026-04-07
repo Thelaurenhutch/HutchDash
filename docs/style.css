@@ -1244,3 +1244,278 @@ body::before {
 ::-webkit-scrollbar-track { background: var(--cream2); border-left: 2px solid var(--brown); }
 ::-webkit-scrollbar-thumb { background: var(--brown); }
 ::-webkit-scrollbar-thumb:hover { background: var(--gold); }
+
+/* ── CARD HEADER BUTTON (shared: EDIT WEEK, filter, etc.) ── */
+.card-header-btn {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.45rem;
+  color: var(--cream);
+  background: var(--brown);
+  border: 2px solid var(--gold);
+  padding: 3px 7px;
+  cursor: pointer;
+  letter-spacing: 0.03em;
+  margin-left: auto;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+.card-header-btn:hover { background: var(--gold); color: var(--brown); }
+.card-header-btn.active { background: var(--red); border-color: var(--red); color: var(--cream); }
+
+/* ── TODOS ── */
+.todo-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+
+.todo-item {
+  display: grid;
+  grid-template-columns: 22px 1fr auto;
+  grid-template-rows: auto auto;
+  column-gap: 8px;
+  align-items: start;
+  background: var(--cream2);
+  border: 2px solid var(--brown);
+  border-left-width: 4px;
+  padding: 7px 8px;
+  transition: opacity 0.2s;
+}
+.todo-item.todo-checked { opacity: 0.55; }
+
+.todo-check-col { grid-row: 1 / 3; display: flex; align-items: center; justify-content: center; padding-top: 2px; }
+
+.todo-checkbox {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px; height: 16px;
+  border: 2px solid var(--brown);
+  background: var(--cream);
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+}
+.todo-checkbox:checked { background: var(--brown); }
+.todo-checkbox:checked::after {
+  content: '✓';
+  position: absolute;
+  top: -2px; left: 1px;
+  font-size: 11px;
+  color: var(--cream);
+  font-family: 'Press Start 2P', monospace;
+}
+
+.todo-title {
+  font-family: 'Courier Prime', monospace;
+  font-size: 0.88rem;
+  color: var(--brown);
+  line-height: 1.3;
+  word-break: break-word;
+}
+.todo-checked .todo-title { text-decoration: line-through; color: var(--brown-light, #8a7a6a); }
+
+.todo-meta {
+  grid-column: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.todo-cat-badge {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.38rem;
+  color: var(--cream);
+  padding: 2px 5px;
+  border-radius: 2px;
+  letter-spacing: 0.04em;
+}
+
+.todo-due {
+  font-family: 'Courier Prime', monospace;
+  font-size: 0.72rem;
+  color: var(--brown);
+  opacity: 0.75;
+}
+.todo-overdue-text { color: var(--red) !important; opacity: 1 !important; font-weight: bold; }
+
+.todo-delete-btn {
+  grid-row: 1;
+  grid-column: 3;
+  background: none;
+  border: none;
+  color: var(--brown);
+  opacity: 0.35;
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 0 2px;
+  line-height: 1;
+  transition: opacity 0.15s, color 0.15s;
+}
+.todo-delete-btn:hover { opacity: 1; color: var(--red); }
+
+/* todo add form */
+.todo-add-wrap { margin-top: 8px; }
+
+.todo-add-form {
+  display: none;
+  flex-direction: column;
+  gap: 7px;
+  background: var(--cream2);
+  border: 2px solid var(--brown);
+  padding: 10px;
+  margin-top: 6px;
+}
+.todo-add-form.todo-form-open { display: flex; }
+
+.todo-form-input,
+.todo-form-select,
+.todo-form-date {
+  font-family: 'Courier Prime', monospace;
+  font-size: 0.88rem;
+  color: var(--brown);
+  background: var(--cream);
+  border: 2px solid var(--brown);
+  padding: 5px 7px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.todo-form-input:focus,
+.todo-form-select:focus,
+.todo-form-date:focus { outline: none; border-color: var(--gold); }
+
+.todo-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+
+.todo-form-submit {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.5rem;
+  color: var(--cream);
+  background: var(--brown);
+  border: 2px solid var(--gold);
+  padding: 7px 12px;
+  cursor: pointer;
+  align-self: flex-end;
+  transition: background 0.15s, color 0.15s;
+}
+.todo-form-submit:hover { background: var(--gold); color: var(--brown); }
+
+/* ── WORKOUT PLAN MODAL ── */
+.modal-box-wide { max-width: 640px; width: 95vw; }
+
+.plan-day-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 3px solid var(--brown);
+  background: var(--cream2);
+  flex-wrap: wrap;
+}
+
+.plan-day-tab {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.42rem;
+  color: var(--brown);
+  background: transparent;
+  border: none;
+  border-right: 2px solid var(--brown);
+  padding: 8px 10px;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  transition: background 0.15s, color 0.15s;
+  flex: 1;
+}
+.plan-day-tab:last-child { border-right: none; }
+.plan-day-tab:hover { background: var(--cream); }
+.plan-day-tab.plan-day-tab-active { background: var(--brown); color: var(--cream); }
+
+/* day label input */
+.plan-label-row { margin-bottom: 10px; }
+.plan-label-input {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.5rem;
+  color: var(--brown);
+  background: var(--cream);
+  border: 2px solid var(--gold);
+  padding: 5px 8px;
+  width: 100%;
+  box-sizing: border-box;
+  letter-spacing: 0.04em;
+}
+.plan-label-input:focus { outline: none; border-color: var(--red); }
+
+/* exercise rows */
+.plan-exercises { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+
+.plan-ex-row {
+  display: grid;
+  grid-template-columns: 1fr 55px 55px 70px 24px;
+  gap: 5px;
+  align-items: center;
+}
+
+.plan-input {
+  font-family: 'Courier Prime', monospace;
+  font-size: 0.82rem;
+  color: var(--brown);
+  background: var(--cream);
+  border: 2px solid var(--brown);
+  padding: 4px 6px;
+  box-sizing: border-box;
+  width: 100%;
+}
+.plan-input:focus { outline: none; border-color: var(--gold); }
+.plan-input::placeholder { opacity: 0.45; }
+
+.plan-input-num { text-align: center; }
+
+.plan-ex-del {
+  background: none;
+  border: 2px solid var(--brown);
+  color: var(--brown);
+  cursor: pointer;
+  font-size: 0.7rem;
+  line-height: 1;
+  padding: 3px 5px;
+  transition: background 0.15s, color 0.15s;
+}
+.plan-ex-del:hover { background: var(--red); border-color: var(--red); color: var(--cream); }
+
+.plan-add-ex-btn {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.42rem;
+  color: var(--brown);
+  background: transparent;
+  border: 2px dashed var(--brown);
+  padding: 6px 10px;
+  cursor: pointer;
+  width: 100%;
+  letter-spacing: 0.04em;
+  transition: background 0.15s, color 0.15s;
+  margin-bottom: 12px;
+}
+.plan-add-ex-btn:hover { background: var(--cream2); }
+
+.plan-save-row {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  border-top: 2px solid var(--brown);
+  padding-top: 12px;
+}
+
+.plan-save-day-btn, .plan-clear-day-btn {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.45rem;
+  padding: 7px 12px;
+  border: 2px solid;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  transition: background 0.15s, color 0.15s;
+}
+.plan-save-day-btn { background: var(--brown); color: var(--cream); border-color: var(--gold); }
+.plan-save-day-btn:hover { background: var(--gold); color: var(--brown); }
+.plan-clear-day-btn { background: transparent; color: var(--red); border-color: var(--red); }
+.plan-clear-day-btn:hover { background: var(--red); color: var(--cream); }
+
+/* plan modal body padding */
+#planModalBody { padding: 14px 16px; }

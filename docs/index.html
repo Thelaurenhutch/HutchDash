@@ -77,6 +77,7 @@
       <div class="card-header">
         <span class="card-icon">⚔️</span>
         <h2 class="card-title">TRAINING REGIMEN</h2>
+        <button class="card-header-btn" onclick="openWorkoutPlanModal()">✏ EDIT WEEK</button>
         <span class="card-badge" id="workoutBadge">DAY</span>
       </div>
       <div class="card-body" id="workoutBody">
@@ -102,6 +103,7 @@
       <div class="card-header">
         <span class="card-icon">📋</span>
         <h2 class="card-title">FIELD OBJECTIVES</h2>
+        <button class="card-header-btn" id="todoFilterBtn" onclick="toggleShowDone()" style="display:none">▼ SHOW DONE</button>
         <span class="card-badge" id="todosBadge">0 ACTIVE</span>
       </div>
       <div class="card-body" id="todosBody">
@@ -110,6 +112,26 @@
     </section>
 
   </main>
+
+  <!-- WORKOUT PLAN MODAL -->
+  <div class="modal-overlay" id="workoutPlanModal" onclick="closeWorkoutPlanModal(event)">
+    <div class="modal-box modal-box-wide">
+      <div class="modal-header" style="background:var(--red)">
+        <span class="modal-title">✏ WEEKLY WORKOUT PLAN</span>
+        <button class="modal-close" onclick="closeWorkoutPlanModal()">✕</button>
+      </div>
+      <div class="plan-day-tabs">
+        <button class="plan-day-tab" data-day="Mon" onclick="selectPlanDay('Mon')">MON</button>
+        <button class="plan-day-tab" data-day="Tue" onclick="selectPlanDay('Tue')">TUE</button>
+        <button class="plan-day-tab" data-day="Wed" onclick="selectPlanDay('Wed')">WED</button>
+        <button class="plan-day-tab" data-day="Thu" onclick="selectPlanDay('Thu')">THU</button>
+        <button class="plan-day-tab" data-day="Fri" onclick="selectPlanDay('Fri')">FRI</button>
+        <button class="plan-day-tab" data-day="Sat" onclick="selectPlanDay('Sat')">SAT</button>
+        <button class="plan-day-tab" data-day="Sun" onclick="selectPlanDay('Sun')">SUN</button>
+      </div>
+      <div class="modal-body" id="planModalBody"></div>
+    </div>
+  </div>
 
   <!-- MACRO GOALS MODAL -->
   <div class="modal-overlay" id="macroModal" onclick="closeMacroModal(event)">

@@ -6,6 +6,13 @@
 
 const DATA_URL = 'data/data.json';
 
+// Categories for todos
+const CATEGORIES = ['Work', 'Personal', 'Health', 'Fitness', 'Errands', 'Other'];
+const CAT_COLORS  = {
+  Work: '#5B7FA6', Personal: '#D4A853', Health: '#C65D52',
+  Fitness: '#6B9F78', Errands: '#9B7EC8', Other: '#2C2416'
+};
+
 // ── Utility: clamp a percentage 0–100 ──
 const pct = (val, max) => Math.min(100, Math.round((val / max) * 100));
 
@@ -18,7 +25,7 @@ const getTodayStr = () => new Date().toISOString().slice(0, 10);
 let _db         = null;
 let _currentUid = null;
 let _unsubWorkout = null, _unsubFood = null, _unsubTodos = null;
-let _unsubCalDone = null, _unsubMacroGoals = null;
+let _unsubCalDone = null, _unsubMacroGoals = null, _unsubWorkoutPlan = null;
 
 // In-memory state — pre-loaded from localStorage, then overridden by Firestore
 const _today = getTodayStr();
@@ -42,6 +49,19 @@ let _doneState = (() => {
 })();
 
 let _currentTodos = [];
+
+// Persistent todo list (not per-day)
+let _todoList = (() => {
+  try { return JSON.parse(localStorage.getItem('hutch_todos') || '[]'); }
+  catch { return []; }
+})();
+let _showDone = false;
+
+// Persistent workout plan { Mon: {label, exercises}, Tue: ... }
+let _workoutPlan = (() => {
+  try { return JSON.parse(localStorage.getItem('hutch_workout_plan') || 'null'); }
+  catch { return null; }
+})();
 
 // ── Utility: format a date string nicely ──
 const fmtDate = (isoStr) => {
@@ -124,16 +144,37 @@ function saveWorkoutState(state) {
 }
 
 function renderWorkout(workout) {
+  // Prefer the internal plan over data.json
+  if (_workoutPlan) { renderWorkoutFromPlan(); return; }
   const body  = document.getElementById('workoutBody');
   const badge = document.getElementById('workoutBadge');
 
   if (!workout || !workout.exercises || workout.exercises.length === 0) {
-    body.innerHTML = `<p class="rest-day">★ REST DAY — YOU'VE EARNED IT ★</p>`;
+    body.innerHTML = `<p class="rest-day">No plan yet. Click <strong>EDIT WEEK</strong> in the header to build your schedule.</p>`;
+    if (badge) badge.textContent = 'SET UP';
     return;
   }
 
   if (badge) badge.textContent = workout.label || workout.day || 'DAY';
   _workoutExercises = workout.exercises;
+  renderWorkoutFromState(loadWorkoutState(), false);
+}
+
+function renderWorkoutFromPlan() {
+  const body  = document.getElementById('workoutBody');
+  const badge = document.getElementById('workoutBadge');
+  const day   = new Date().toLocaleDateString('en-US', { weekday: 'short' });
+  const plan  = _workoutPlan;
+
+  if (!plan || !plan[day] || !plan[day].exercises || plan[day].exercises.length === 0) {
+    body.innerHTML = `<p class="rest-day">&#9733; REST DAY &mdash; YOU'VE EARNED IT &#9733;</p>`;
+    if (badge) badge.textContent = plan ? day.toUpperCase() : 'SET UP';
+    return;
+  }
+
+  const dayData = plan[day];
+  if (badge) badge.textContent = dayData.label || day.toUpperCase();
+  _workoutExercises = dayData.exercises;
   renderWorkoutFromState(loadWorkoutState(), false);
 }
 
@@ -425,83 +466,253 @@ function deleteFood(idx) {
 }
 
 // ══════════════════════════════════════════
-//  TODOS
+//  TODOS — Persistent internal (no Notion)
 // ══════════════════════════════════════════
-// Done state — in-memory, synced to Firestore when signed in
-function loadDoneState() { return _doneState; }
+function getWeekStart() {
+  const d = new Date();
+  const day = d.getDay();
+  d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
 
-function saveDoneState(state) {
-  _doneState = state;
-  localStorage.setItem('hutch_done', JSON.stringify(state));
+function saveTodos(list) {
+  _todoList = list;
+  localStorage.setItem('hutch_todos', JSON.stringify(list));
   if (_db && _currentUid) {
     _db.collection('users').doc(_currentUid)
-       .collection('todos').doc(getTodayStr())
-       .set({ done: state }).catch(console.error);
+       .collection('data').doc('todos')
+       .set({ items: list }).catch(console.error);
   }
 }
 
-function renderTodos(todos) {
-  _currentTodos = todos || [];
-  renderTodosFromState();
-}
+// renderTodos is called by init() — just delegates to state renderer
+function renderTodos() { renderTodosFromState(); }
 
 function renderTodosFromState() {
-  const todos = _currentTodos;
   const body  = document.getElementById('todosBody');
   const badge = document.getElementById('todosBadge');
 
-  if (!todos || todos.length === 0) {
-    body.innerHTML = `<p class="empty-todos">All clear, agent. No objectives outstanding.</p>`;
-    if (badge) badge.textContent = '0 ACTIVE';
-    return;
-  }
+  // Auto-prune: remove done items from a previous week
+  const weekStart = getWeekStart();
+  const pruned = _todoList.filter(t => !t.done || new Date(t.doneAt || 0) >= weekStart);
+  if (pruned.length !== _todoList.length) saveTodos(pruned);
 
-  const doneState = loadDoneState();
-  todos.forEach(t => { if (t.done) doneState[t.id] = true; });
+  const visible = _showDone ? pruned : pruned.filter(t => !t.done);
+  const activeCount = pruned.filter(t => !t.done).length;
+  const doneCount   = pruned.filter(t => t.done).length;
 
-  const activeCount = todos.filter(t => !doneState[t.id]).length;
   if (badge) badge.textContent = `${activeCount} ACTIVE`;
 
-  const html = `<div class="todos-grid">${todos.map(t => {
-    const done      = !!doneState[t.id];
-    const checkMark = done ? '✔' : '';
-    return `
-      <div class="todo-item${done ? ' done' : ''}"
-           data-id="${escHtml(String(t.id))}"
-           onclick="toggleTodo('${escHtml(String(t.id))}', this)">
-        <div class="todo-checkbox">${checkMark}</div>
-        <div class="todo-content">
-          <span class="todo-name">${escHtml(t.name)}</span>
-          <div class="todo-meta">
-            <span class="priority-badge ${escHtml(t.priority || 'None')}">${escHtml(t.priority || 'NONE')}</span>
-            ${t.due ? `<span class="todo-due">due ${fmtDate(t.due)}</span>` : ''}
-          </div>
-        </div>
-      </div>`;
-  }).join('')}</div>`;
+  const filterBtn = document.getElementById('todoFilterBtn');
+  if (filterBtn) {
+    filterBtn.textContent = _showDone ? '▲ HIDE DONE' : `▼ SHOW DONE (${doneCount})`;
+    filterBtn.style.display = doneCount > 0 ? '' : 'none';
+  }
 
-  body.innerHTML = html;
+  const sorted = [...visible].sort((a, b) => {
+    if (a.done !== b.done) return a.done ? 1 : -1;
+    const da = a.due ? new Date(a.due) : new Date('9999');
+    const db = b.due ? new Date(b.due) : new Date('9999');
+    return da - db;
+  });
+
+  const listHtml = sorted.length === 0 ? `<p class="empty-todos">All clear, agent. No objectives outstanding.</p>` :
+    `<div class="todo-list">${sorted.map(t => {
+      const color     = CAT_COLORS[t.category] || '#2C2416';
+      const isOverdue = !t.done && t.due && new Date(t.due + 'T23:59:59') < new Date();
+      return `
+        <div class="todo-item${t.done ? ' done' : ''}${isOverdue ? ' overdue' : ''}">
+          <div class="todo-check-col" onclick="toggleTodo('${t.id}')">
+            <div class="todo-checkbox${t.done ? ' todo-checked' : ''}">${t.done ? '&#10004;' : ''}</div>
+          </div>
+          <div class="todo-content">
+            <span class="todo-title">${escHtml(t.title)}</span>
+            <div class="todo-meta">
+              <span class="todo-cat-badge" style="background:${color}">${escHtml(t.category)}</span>
+              ${t.due ? `<span class="todo-due${isOverdue ? ' todo-overdue-text' : ''}">&#128197; ${fmtDate(t.due)}</span>` : ''}
+            </div>
+          </div>
+          <button class="todo-delete-btn" onclick="deleteTodo('${t.id}')" title="Delete">&#10005;</button>
+        </div>`; }).join('')}
+    </div>`;
+
+  const formHtml = `
+    <div class="todo-add-wrap">
+      <button class="todo-add-toggle-btn" id="todoAddBtn" onclick="toggleTodoForm()">+ ADD TASK</button>
+      <div class="todo-add-form" id="todoAddForm">
+        <input class="todo-form-input" id="newTodoTitle" type="text" placeholder="Task title..."
+               autocomplete="off" onkeydown="if(event.key==='Enter')submitTodo()" />
+        <div class="todo-form-row">
+          <select class="todo-form-select" id="newTodoCat">
+            ${CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('')}
+          </select>
+          <input class="todo-form-input todo-form-date" id="newTodoDue" type="date" />
+          <button class="todo-form-submit" onclick="submitTodo()">&#9658; ADD</button>
+        </div>
+      </div>
+    </div>`;
+
+  body.innerHTML = listHtml + formHtml;
 }
 
-function toggleTodo(id, el) {
-  const doneState = loadDoneState();
-  doneState[id] = !doneState[id];
-  saveDoneState(doneState);
-
-  const checkbox = el.querySelector('.todo-checkbox');
-  if (doneState[id]) {
-    el.classList.add('done');
-    checkbox.textContent = '✔';
-  } else {
-    el.classList.remove('done');
-    checkbox.textContent = '';
+function toggleTodoForm() {
+  const form = document.getElementById('todoAddForm');
+  const btn  = document.getElementById('todoAddBtn');
+  if (!form) return;
+  const open = form.classList.toggle('todo-form-open');
+  if (btn) btn.textContent = open ? '− CANCEL' : '+ ADD TASK';
+  if (open) {
+    document.getElementById('newTodoDue').value = getTodayStr();
+    setTimeout(() => document.getElementById('newTodoTitle')?.focus(), 50);
   }
+}
 
-  // Update badge count
-  const allItems = document.querySelectorAll('.todo-item');
-  const activeCount = [...allItems].filter(i => !i.classList.contains('done')).length;
-  const badge = document.getElementById('todosBadge');
-  if (badge) badge.textContent = `${activeCount} ACTIVE`;
+function submitTodo() {
+  const titleEl = document.getElementById('newTodoTitle');
+  const title   = titleEl?.value.trim();
+  if (!title) { titleEl?.focus(); return; }
+  const todo = {
+    id:       String(Date.now()),
+    title,
+    category: document.getElementById('newTodoCat')?.value || 'Other',
+    due:      document.getElementById('newTodoDue')?.value || null,
+    done:     false,
+    doneAt:   null,
+    created:  getTodayStr(),
+  };
+  saveTodos([..._todoList, todo]);
+  renderTodosFromState();
+  titleEl.value = '';
+  document.getElementById('newTodoDue').value = getTodayStr();
+  setTimeout(() => titleEl.focus(), 50);
+}
+
+function toggleTodo(id) {
+  const list = _todoList.map(t => {
+    if (t.id !== id) return t;
+    const done = !t.done;
+    return { ...t, done, doneAt: done ? new Date().toISOString() : null };
+  });
+  saveTodos(list);
+  renderTodosFromState();
+}
+
+function deleteTodo(id) {
+  saveTodos(_todoList.filter(t => t.id !== id));
+  renderTodosFromState();
+}
+
+function toggleShowDone() {
+  _showDone = !_showDone;
+  renderTodosFromState();
+}
+
+// ══════════════════════════════════════════
+//  WORKOUT PLAN — Internal weekly builder
+// ══════════════════════════════════════════
+const PLAN_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+let _planEditDay = 'Mon';
+
+function saveWorkoutPlan(plan) {
+  _workoutPlan = plan;
+  localStorage.setItem('hutch_workout_plan', JSON.stringify(plan));
+  if (_db && _currentUid) {
+    _db.collection('users').doc(_currentUid)
+       .collection('data').doc('workout_plan')
+       .set({ plan }).catch(console.error);
+  }
+}
+
+function openWorkoutPlanModal() {
+  const modal = document.getElementById('workoutPlanModal');
+  if (!modal) return;
+  _planEditDay = new Date().toLocaleDateString('en-US', { weekday: 'short' });
+  if (!PLAN_DAYS.includes(_planEditDay)) _planEditDay = 'Mon';
+  renderPlanModalDay(_planEditDay);
+  modal.classList.add('modal-open');
+}
+
+function closeWorkoutPlanModal(event) {
+  if (event && event.target !== document.getElementById('workoutPlanModal')) return;
+  document.getElementById('workoutPlanModal')?.classList.remove('modal-open');
+}
+
+function selectPlanDay(day) {
+  _planEditDay = day;
+  renderPlanModalDay(day);
+}
+
+function renderPlanModalDay(day) {
+  document.querySelectorAll('.plan-day-tab').forEach(t =>
+    t.classList.toggle('plan-day-tab-active', t.dataset.day === day));
+
+  const dayData = (_workoutPlan || {})[day] || { label: '', exercises: [] };
+  const bodyEl  = document.getElementById('planModalBody');
+  if (!bodyEl) return;
+
+  bodyEl.innerHTML = `
+    <input class="plan-label-input" id="planDayLabel" type="text"
+           placeholder="Day label (e.g. UPPER BODY)"
+           value="${escHtml(dayData.label || '')}" />
+    <div class="plan-exercises" id="planExercises">
+      ${(dayData.exercises || []).map((ex, i) => renderPlanExRow(ex, i)).join('')}
+    </div>
+    <button class="plan-add-ex-btn" onclick="addPlanExercise()">+ ADD EXERCISE</button>
+    <div class="plan-save-row">
+      <button class="plan-save-day-btn" id="planSaveBtn" onclick="savePlanDay('${day}')">&#9658; SAVE ${day.toUpperCase()}</button>
+      <button class="plan-clear-day-btn" onclick="clearPlanDay('${day}')">&#10005; CLEAR DAY</button>
+    </div>`;
+}
+
+function renderPlanExRow(ex, i) {
+  return `
+    <div class="plan-ex-row" data-idx="${i}">
+      <input class="plan-input plan-input-name" type="text"  placeholder="Exercise" value="${escHtml(ex.name  || '')}" data-field="name" />
+      <input class="plan-input plan-input-num"  type="number" placeholder="Sets"    value="${ex.sets  || ''}"          min="1" data-field="sets" />
+      <span class="plan-ex-x">&#215;</span>
+      <input class="plan-input plan-input-num"  type="number" placeholder="Reps"    value="${ex.reps  || ''}"          min="1" data-field="reps" />
+      <input class="plan-input plan-input-notes" type="text" placeholder="Notes"   value="${escHtml(ex.notes || '')}" data-field="notes" />
+      <button class="plan-ex-del" onclick="removePlanExRow(this)">&#10005;</button>
+    </div>`;
+}
+
+function addPlanExercise() {
+  const container = document.getElementById('planExercises');
+  if (!container) return;
+  const idx = container.querySelectorAll('.plan-ex-row').length;
+  container.insertAdjacentHTML('beforeend', renderPlanExRow({}, idx));
+  container.lastElementChild?.querySelector('.plan-input-name')?.focus();
+}
+
+function removePlanExRow(btn) { btn.closest('.plan-ex-row')?.remove(); }
+
+function savePlanDay(day) {
+  const label = document.getElementById('planDayLabel')?.value.trim() || '';
+  const exercises = [...document.querySelectorAll('#planExercises .plan-ex-row')]
+    .map(row => ({
+      name:  row.querySelector('[data-field="name"]')?.value.trim()  || '',
+      sets:  parseInt(row.querySelector('[data-field="sets"]')?.value)  || 0,
+      reps:  parseInt(row.querySelector('[data-field="reps"]')?.value)  || 0,
+      notes: row.querySelector('[data-field="notes"]')?.value.trim() || '',
+    })).filter(e => e.name);
+
+  const plan = { ...(_workoutPlan || {}) };
+  plan[day] = { label, exercises };
+  saveWorkoutPlan(plan);
+
+  const btn = document.getElementById('planSaveBtn');
+  if (btn) { btn.textContent = '&#10004; SAVED!'; setTimeout(() => btn.textContent = `&#9658; SAVE ${day.toUpperCase()}`, 1400); }
+
+  const today = new Date().toLocaleDateString('en-US', { weekday: 'short' });
+  if (day === today) renderWorkoutFromPlan();
+}
+
+function clearPlanDay(day) {
+  const plan = { ...(_workoutPlan || {}) };
+  plan[day] = { label: '', exercises: [] };
+  saveWorkoutPlan(plan);
+  renderPlanModalDay(day);
 }
 
 // ══════════════════════════════════════════
@@ -571,14 +782,14 @@ function setupFirestoreListeners() {
       }
     }, e => console.warn('[HUTCHDASH] Food listener:', e));
 
-  _unsubTodos = base.collection('todos').doc(today)
+  _unsubTodos = base.collection('data').doc('todos')
     .onSnapshot(snap => {
       if (!snap.exists) return;
-      const done = snap.data().done || {};
-      if (JSON.stringify(done) !== JSON.stringify(_doneState)) {
-        _doneState = done;
-        localStorage.setItem('hutch_done', JSON.stringify(done));
-        if (_currentTodos.length > 0) renderTodosFromState();
+      const items = snap.data().items || [];
+      if (JSON.stringify(items) !== JSON.stringify(_todoList)) {
+        _todoList = items;
+        localStorage.setItem('hutch_todos', JSON.stringify(items));
+        renderTodosFromState();
       }
     }, e => console.warn('[HUTCHDASH] Todos listener:', e));
 
@@ -603,14 +814,26 @@ function setupFirestoreListeners() {
         if (_baseMacros) renderMacrosFromState();
       }
     }, e => console.warn('[HUTCHDASH] MacroGoals listener:', e));
+
+  _unsubWorkoutPlan = base.collection('data').doc('workout_plan')
+    .onSnapshot(snap => {
+      if (!snap.exists) return;
+      const plan = snap.data().plan || null;
+      if (JSON.stringify(plan) !== JSON.stringify(_workoutPlan)) {
+        _workoutPlan = plan;
+        localStorage.setItem('hutch_workout_plan', JSON.stringify(plan));
+        renderWorkoutFromPlan();
+      }
+    }, e => console.warn('[HUTCHDASH] WorkoutPlan listener:', e));
 }
 
 function teardownListeners() {
-  if (_unsubWorkout)   { _unsubWorkout();   _unsubWorkout   = null; }
-  if (_unsubFood)      { _unsubFood();      _unsubFood      = null; }
-  if (_unsubTodos)     { _unsubTodos();     _unsubTodos     = null; }
-  if (_unsubCalDone)   { _unsubCalDone();   _unsubCalDone   = null; }
-  if (_unsubMacroGoals){ _unsubMacroGoals(); _unsubMacroGoals = null; }
+  if (_unsubWorkout)    { _unsubWorkout();    _unsubWorkout    = null; }
+  if (_unsubFood)       { _unsubFood();       _unsubFood       = null; }
+  if (_unsubTodos)      { _unsubTodos();      _unsubTodos      = null; }
+  if (_unsubCalDone)    { _unsubCalDone();    _unsubCalDone    = null; }
+  if (_unsubMacroGoals) { _unsubMacroGoals(); _unsubMacroGoals = null; }
+  if (_unsubWorkoutPlan){ _unsubWorkoutPlan(); _unsubWorkoutPlan = null; }
 }
 
 function updateAuthUI(user) {
@@ -684,9 +907,9 @@ async function init() {
 
   // ── Render sections ──
   renderCalendar(data.calendar || []);
-  renderWorkout(data.workout   || null);
+  renderWorkout(data.workout   || null);  // uses local plan if available
   renderMacros(data.macros     || null);
-  renderTodos(data.todos       || []);
+  renderTodos();                           // uses internal localStorage/Firestore
 }
 
 // ── HTML escape helper ──
@@ -702,5 +925,5 @@ function escHtml(str) {
 
 document.addEventListener('DOMContentLoaded', init);
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') closeMacroModal();
+  if (e.key === 'Escape') { closeMacroModal(); closeWorkoutPlanModal(); }
 });
