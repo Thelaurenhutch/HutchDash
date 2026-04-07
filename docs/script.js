@@ -521,10 +521,9 @@ async function selectFoodFromDropdown(idx) {
   const food = _dropdownItems[idx];
   if (!food) return;
 
-  // Hide dropdown, show loading
   const dd   = document.getElementById('foodDropdown');
   const info = document.getElementById('foodSelectedInfo');
-  if (dd)   dd.innerHTML = '';
+  if (dd)   { dd.innerHTML = ''; dd.style.display = 'none'; }
   if (info) info.innerHTML = '<span class="food-selected-loading">Loading macros...</span>';
 
   _foodSelectedName = food.description;
@@ -545,13 +544,23 @@ async function selectFoodFromDropdown(idx) {
     }
     _foodPer100 = { cal: n.cal||0, pro: n.pro||0, carb: n.carb||0, fat: n.fat||0 };
 
-    // Set default serving to 100g and fill fields
-    document.getElementById('foodServing').value = 100;
-    fillMacroFields(100);
+    // Try to get serving size from the API — fall back to 100g
+    const servingG   = detail.servingSize && detail.servingSizeUnit?.toLowerCase() === 'g'
+                       ? detail.servingSize
+                       : (detail.householdServingFullText ? null : 100);
+    const servingLabel = detail.householdServingFullText || null;
+    const defaultG   = servingG || 100;
+
+    document.getElementById('foodServing').value = defaultG;
+    fillMacroFields(defaultG);
+
+    const servingHint = servingLabel
+      ? `1 serving = ${servingLabel} (${defaultG}g)`
+      : `${defaultG}g per serving`;
 
     if (info) info.innerHTML = `
       <span class="food-selected-name">✔ ${escHtml(food.description)}</span>
-      <span class="food-selected-per">Per 100g: ${_foodPer100.cal}kcal · ${_foodPer100.pro}g P · ${_foodPer100.carb}g C · ${_foodPer100.fat}g F</span>`;
+      <span class="food-selected-per">${escHtml(servingHint)} · ${_foodPer100.cal}kcal/100g</span>`;
   } catch(e) {
     if (info) info.innerHTML = '<span class="food-selected-loading">Could not load macros.</span>';
   }
