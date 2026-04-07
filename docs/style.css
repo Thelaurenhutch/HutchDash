@@ -906,6 +906,91 @@ body::before {
   padding: 1.5rem 0;
 }
 
+/* ════════════════════════════════
+   AUTH / SYNC BAR
+════════════════════════════════ */
+.auth-bar {
+  background: var(--cream2);
+  border-bottom: 2px solid var(--brown);
+  position: relative;
+  z-index: 10;
+}
+
+.auth-bar-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0.45rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.auth-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.auth-dot {
+  width: 8px;
+  height: 8px;
+  border: 2px solid var(--brown);
+  flex-shrink: 0;
+}
+
+.auth-dot-on {
+  background: var(--green);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+.auth-dot-off { background: transparent; }
+
+@keyframes pulse-dot {
+  0%, 100% { box-shadow: 0 0 3px var(--green); }
+  50%       { box-shadow: 0 0 8px var(--green); }
+}
+
+.auth-status-text {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.38rem;
+  letter-spacing: 0.08em;
+  color: var(--brown);
+  opacity: 0.7;
+}
+
+.auth-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.auth-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--brown);
+  object-fit: cover;
+}
+
+.auth-btn {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.35rem;
+  letter-spacing: 0.08em;
+  background: var(--brown);
+  color: var(--gold);
+  border: 2px solid var(--brown);
+  padding: 0.4rem 0.7rem;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 rgba(0,0,0,0.3);
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+
+.auth-btn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 rgba(0,0,0,0.3);
+}
+
 /* ── FOOTER ── */
 .site-footer {
   position: relative;

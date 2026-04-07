@@ -12,6 +12,36 @@ const pct = (val, max) => Math.min(100, Math.round((val / max) * 100));
 // ── Utility: today as YYYY-MM-DD ──
 const getTodayStr = () => new Date().toISOString().slice(0, 10);
 
+// ══════════════════════════════════════════
+//  FIREBASE STATE
+// ══════════════════════════════════════════
+let _db         = null;
+let _currentUid = null;
+let _unsubWorkout = null, _unsubFood = null, _unsubTodos = null;
+
+// In-memory state — pre-loaded from localStorage, then overridden by Firestore
+const _today = getTodayStr();
+let _workoutState = (() => {
+  try {
+    const r = localStorage.getItem('hutch_workout_' + _today);
+    return r ? JSON.parse(r) : { sets: 0, checks: {} };
+  } catch { return { sets: 0, checks: {} }; }
+})();
+
+let _foodLog = (() => {
+  try {
+    const r = localStorage.getItem('hutch_food_' + _today);
+    return r ? JSON.parse(r) : [];
+  } catch { return []; }
+})();
+
+let _doneState = (() => {
+  try { return JSON.parse(localStorage.getItem('hutch_done') || '{}'); }
+  catch { return {}; }
+})();
+
+let _currentTodos = [];
+
 // ── Utility: format a date string nicely ──
 const fmtDate = (isoStr) => {
   if (!isoStr) return '';
@@ -48,15 +78,16 @@ function renderCalendar(events) {
 let _workoutExercises = [];
 const TOTAL_SETS = 3;
 
-function loadWorkoutState() {
-  try {
-    const raw = localStorage.getItem('hutch_workout_' + getTodayStr());
-    return raw ? JSON.parse(raw) : { sets: 0, checks: {} };
-  } catch { return { sets: 0, checks: {} }; }
-}
+function loadWorkoutState() { return _workoutState; }
 
 function saveWorkoutState(state) {
+  _workoutState = state;
   localStorage.setItem('hutch_workout_' + getTodayStr(), JSON.stringify(state));
+  if (_db && _currentUid) {
+    _db.collection('users').doc(_currentUid)
+       .collection('workout').doc(getTodayStr())
+       .set(state).catch(console.error);
+  }
 }
 
 function renderWorkout(workout) {
@@ -150,15 +181,16 @@ function resetWorkout() {
 // ══════════════════════════════════════════
 let _baseMacros = null;
 
-function getTodayFoodLog() {
-  try {
-    const raw = localStorage.getItem('hutch_food_' + getTodayStr());
-    return raw ? JSON.parse(raw) : [];
-  } catch { return []; }
-}
+function getTodayFoodLog()     { return _foodLog; }
 
 function saveTodayFoodLog(log) {
+  _foodLog = log;
   localStorage.setItem('hutch_food_' + getTodayStr(), JSON.stringify(log));
+  if (_db && _currentUid) {
+    _db.collection('users').doc(_currentUid)
+       .collection('food').doc(getTodayStr())
+       .set({ items: log }).catch(console.error);
+  }
 }
 
 function renderMacros(macros) {
@@ -311,17 +343,26 @@ function deleteFood(idx) {
 // ══════════════════════════════════════════
 //  TODOS
 // ══════════════════════════════════════════
-// Client-side done state (persisted in localStorage)
-function loadDoneState() {
-  try { return JSON.parse(localStorage.getItem('hutch_done') || '{}'); }
-  catch { return {}; }
-}
+// Done state — in-memory, synced to Firestore when signed in
+function loadDoneState() { return _doneState; }
 
 function saveDoneState(state) {
+  _doneState = state;
   localStorage.setItem('hutch_done', JSON.stringify(state));
+  if (_db && _currentUid) {
+    _db.collection('users').doc(_currentUid)
+       .collection('todos').doc(getTodayStr())
+       .set({ done: state }).catch(console.error);
+  }
 }
 
 function renderTodos(todos) {
+  _currentTodos = todos || [];
+  renderTodosFromState();
+}
+
+function renderTodosFromState() {
+  const todos = _currentTodos;
   const body  = document.getElementById('todosBody');
   const badge = document.getElementById('todosBadge');
 
@@ -332,17 +373,13 @@ function renderTodos(todos) {
   }
 
   const doneState = loadDoneState();
+  todos.forEach(t => { if (t.done) doneState[t.id] = true; });
 
-  // merge server "done" with localStorage
-  todos.forEach(t => {
-    if (t.done) doneState[t.id] = true;
-  });
-
-  const activeTodos = todos.filter(t => !doneState[t.id]);
-  if (badge) badge.textContent = `${activeTodos.length} ACTIVE`;
+  const activeCount = todos.filter(t => !doneState[t.id]).length;
+  if (badge) badge.textContent = `${activeCount} ACTIVE`;
 
   const html = `<div class="todos-grid">${todos.map(t => {
-    const done = !!doneState[t.id];
+    const done      = !!doneState[t.id];
     const checkMark = done ? '✔' : '';
     return `
       <div class="todo-item${done ? ' done' : ''}"
@@ -356,8 +393,7 @@ function renderTodos(todos) {
             ${t.due ? `<span class="todo-due">due ${fmtDate(t.due)}</span>` : ''}
           </div>
         </div>
-      </div>
-    `;
+      </div>`;
   }).join('')}</div>`;
 
   body.innerHTML = html;
@@ -390,8 +426,114 @@ function toggleTodo(id, el) {
 function setupTicker() {
   const ticker = document.querySelector('.ticker-inner');
   if (!ticker) return;
-  // Duplicate content so the loop looks seamless
   ticker.innerHTML += '&nbsp;&nbsp;&nbsp;' + ticker.innerHTML;
+}
+
+// ══════════════════════════════════════════
+//  FIREBASE — Auth, Firestore, real-time sync
+// ══════════════════════════════════════════
+function initFirebase() {
+  if (
+    typeof FIREBASE_CONFIG === 'undefined' ||
+    FIREBASE_CONFIG.apiKey.startsWith('REPLACE')
+  ) {
+    console.info('[HUTCHDASH] Firebase not configured — using localStorage only.');
+    return;
+  }
+  try {
+    firebase.initializeApp(FIREBASE_CONFIG);
+    _db = firebase.firestore();
+    firebase.auth().onAuthStateChanged(user => {
+      if (user) {
+        _currentUid = user.uid;
+        updateAuthUI(user);
+        setupFirestoreListeners();
+      } else {
+        _currentUid = null;
+        updateAuthUI(null);
+        teardownListeners();
+      }
+    });
+  } catch (e) {
+    console.error('[HUTCHDASH] Firebase init error:', e);
+  }
+}
+
+function setupFirestoreListeners() {
+  if (!_db || !_currentUid) return;
+  teardownListeners();
+  const today = getTodayStr();
+  const base  = _db.collection('users').doc(_currentUid);
+
+  _unsubWorkout = base.collection('workout').doc(today)
+    .onSnapshot(snap => {
+      if (!snap.exists) return;
+      const data = snap.data();
+      if (JSON.stringify(data) !== JSON.stringify(_workoutState)) {
+        _workoutState = data;
+        localStorage.setItem('hutch_workout_' + today, JSON.stringify(data));
+        if (_workoutExercises.length > 0) renderWorkoutFromState(_workoutState, false);
+      }
+    }, e => console.warn('[HUTCHDASH] Workout listener:', e));
+
+  _unsubFood = base.collection('food').doc(today)
+    .onSnapshot(snap => {
+      if (!snap.exists) return;
+      const items = snap.data().items || [];
+      if (JSON.stringify(items) !== JSON.stringify(_foodLog)) {
+        _foodLog = items;
+        localStorage.setItem('hutch_food_' + today, JSON.stringify(items));
+        if (_baseMacros) renderMacrosFromState();
+      }
+    }, e => console.warn('[HUTCHDASH] Food listener:', e));
+
+  _unsubTodos = base.collection('todos').doc(today)
+    .onSnapshot(snap => {
+      if (!snap.exists) return;
+      const done = snap.data().done || {};
+      if (JSON.stringify(done) !== JSON.stringify(_doneState)) {
+        _doneState = done;
+        localStorage.setItem('hutch_done', JSON.stringify(done));
+        if (_currentTodos.length > 0) renderTodosFromState();
+      }
+    }, e => console.warn('[HUTCHDASH] Todos listener:', e));
+}
+
+function teardownListeners() {
+  if (_unsubWorkout) { _unsubWorkout(); _unsubWorkout = null; }
+  if (_unsubFood)    { _unsubFood();    _unsubFood    = null; }
+  if (_unsubTodos)   { _unsubTodos();   _unsubTodos   = null; }
+}
+
+function updateAuthUI(user) {
+  const dot    = document.getElementById('authDot');
+  const text   = document.getElementById('authStatusText');
+  const btn    = document.getElementById('authBtn');
+  const avatar = document.getElementById('authAvatar');
+  if (user) {
+    if (dot)    { dot.className = 'auth-dot auth-dot-on'; }
+    if (text)   { text.textContent = (user.displayName || user.email || 'SIGNED IN').toUpperCase(); }
+    if (btn)    { btn.textContent = 'SIGN OUT'; btn.onclick = signOutUser; }
+    if (avatar && user.photoURL) { avatar.src = user.photoURL; avatar.style.display = 'block'; }
+  } else {
+    if (dot)    { dot.className = 'auth-dot auth-dot-off'; }
+    if (text)   { text.textContent = 'NOT SYNCED — LOCAL MODE'; }
+    if (btn)    { btn.textContent = 'SIGN IN WITH GOOGLE'; btn.onclick = signInWithGoogle; }
+    if (avatar) { avatar.style.display = 'none'; }
+  }
+}
+
+function signInWithGoogle() {
+  if (!_db) return;
+  firebase.auth()
+    .signInWithPopup(new firebase.auth.GoogleAuthProvider())
+    .catch(e => console.error('[HUTCHDASH] Sign-in error:', e));
+}
+
+function signOutUser() {
+  if (!_db) return;
+  firebase.auth().signOut()
+    .catch(e => console.error('[HUTCHDASH] Sign-out error:', e));
 }
 
 // ══════════════════════════════════════════
@@ -399,6 +541,7 @@ function setupTicker() {
 // ══════════════════════════════════════════
 async function init() {
   setupTicker();
+  initFirebase();
 
   let data;
   try {

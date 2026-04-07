@@ -8,6 +8,11 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
+  <!-- Firebase SDK (compat v9) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
 </head>
 <body>
 
@@ -35,6 +40,20 @@
       <span class="ticker-label">LAST SYNCED:</span>
       <span id="lastSynced">—</span>
       &nbsp;★&nbsp; MISSION STATUS: ACTIVE &nbsp;★&nbsp; AGENT: L. HUTCHISON &nbsp;★&nbsp; CLEARANCE: LEVEL 5
+    </div>
+  </div>
+
+  <!-- AUTH / SYNC BAR -->
+  <div class="auth-bar" id="authBar">
+    <div class="auth-bar-inner">
+      <div class="auth-status">
+        <div class="auth-dot auth-dot-off" id="authDot"></div>
+        <span class="auth-status-text" id="authStatusText">NOT SYNCED — LOCAL MODE</span>
+      </div>
+      <div class="auth-actions">
+        <img class="auth-avatar" id="authAvatar" src="" alt="" style="display:none;" />
+        <button class="auth-btn" id="authBtn" onclick="signInWithGoogle()">SIGN IN WITH GOOGLE</button>
+      </div>
     </div>
   </div>
 
