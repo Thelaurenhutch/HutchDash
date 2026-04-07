@@ -327,6 +327,67 @@ body::before {
 }
 
 /* ════════════════════════════════
+   WORKOUT — SET COUNTER
+════════════════════════════════ */
+.set-counter {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.75rem;
+  background: var(--brown);
+  border: 2px solid var(--brown);
+  color: var(--cream);
+  box-shadow: var(--shadow-sm);
+}
+
+.set-counter-flash {
+  animation: set-flash 0.7s ease;
+}
+
+@keyframes set-flash {
+  0%   { background: var(--gold); }
+  40%  { background: var(--gold); }
+  100% { background: var(--brown); }
+}
+
+.set-counter-label {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.38rem;
+  letter-spacing: 0.1em;
+  opacity: 0.65;
+  flex-shrink: 0;
+}
+
+.set-pips {
+  display: flex;
+  gap: 6px;
+  flex: 1;
+  align-items: center;
+}
+
+.set-pip {
+  width: 28px;
+  height: 14px;
+  border: 2px solid rgba(255,255,255,0.3);
+  background: rgba(255,255,255,0.1);
+  transition: background 0.3s, border-color 0.3s;
+  flex-shrink: 0;
+}
+
+.set-pip-done {
+  background: var(--gold) !important;
+  border-color: var(--gold-lt) !important;
+  box-shadow: 0 0 6px rgba(212,168,83,0.5);
+}
+
+.set-counter-num {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.5rem;
+  color: var(--gold);
+  flex-shrink: 0;
+}
+
+/* ════════════════════════════════
    WORKOUT EXERCISES
 ════════════════════════════════ */
 .workout-day-label {
@@ -344,19 +405,43 @@ body::before {
 .exercise-row {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.6rem;
   padding: 0.55rem 0.75rem;
   border: 2px solid var(--brown);
   background: var(--cream2);
   box-shadow: 2px 2px 0 var(--brown);
-  position: relative;
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.1s, background 0.15s;
+  user-select: none;
 }
 
-.exercise-row::before {
-  content: '▶';
-  font-size: 0.6rem;
-  color: var(--red);
+.exercise-row:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--brown);
+}
+
+.exercise-row.ex-checked {
+  background: var(--cream);
+  opacity: 0.6;
+}
+
+.ex-checkbox {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--brown);
+  background: var(--cream);
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  color: var(--green);
+  transition: background 0.15s;
+}
+
+.ex-checkbox-done {
+  background: var(--green);
+  color: var(--cream);
 }
 
 .exercise-name {
@@ -364,6 +449,11 @@ body::before {
   font-weight: 700;
   font-size: 0.88rem;
   flex: 1;
+}
+
+.exercise-row.ex-checked .exercise-name {
+  text-decoration: line-through;
+  opacity: 0.7;
 }
 
 .exercise-sets {
@@ -379,9 +469,64 @@ body::before {
   font-size: 0.72rem;
   font-style: italic;
   opacity: 0.65;
-  padding: 0.2rem 0.75rem 0.2rem 1.75rem;
+  padding: 0.2rem 0.75rem 0.2rem 2.6rem;
   border-left: 2px solid var(--red);
   margin-left: 0.2rem;
+}
+
+/* ── WORKOUT COMPLETE STATE ── */
+.workout-complete {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 1.5rem 1rem;
+  text-align: center;
+}
+
+.workout-complete-icon {
+  font-size: 2.5rem;
+  color: var(--gold);
+  animation: spin-star 2s ease-in-out infinite alternate;
+}
+
+@keyframes spin-star {
+  0%   { transform: scale(1) rotate(-5deg); }
+  100% { transform: scale(1.15) rotate(5deg); }
+}
+
+.workout-complete-text {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.15em;
+  color: var(--green);
+}
+
+.workout-complete-sub {
+  font-family: 'Libre Baskerville', serif;
+  font-style: italic;
+  font-size: 0.85rem;
+  opacity: 0.7;
+}
+
+.workout-reset-btn {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.4rem;
+  letter-spacing: 0.08em;
+  background: var(--brown);
+  color: var(--gold);
+  border: 2px solid var(--brown);
+  padding: 0.5rem 0.9rem;
+  cursor: pointer;
+  margin-top: 0.4rem;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+
+.workout-reset-btn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--brown);
 }
 
 .rest-day {
@@ -485,6 +630,185 @@ body::before {
   opacity: 0.7;
   display: block;
   margin-top: 3px;
+}
+
+/* ════════════════════════════════
+   FOOD LOG LIST
+════════════════════════════════ */
+.food-log-list {
+  border: 2px solid var(--brown);
+  background: var(--cream2);
+}
+
+.food-log-header {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.38rem;
+  letter-spacing: 0.1em;
+  background: var(--brown);
+  color: var(--gold);
+  padding: 0.35rem 0.6rem;
+}
+
+.food-log-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid rgba(44,36,22,0.15);
+}
+
+.food-log-item:last-child {
+  border-bottom: none;
+}
+
+.food-log-name {
+  font-family: 'Libre Baskerville', serif;
+  font-size: 0.82rem;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.food-log-macros {
+  font-family: 'Courier Prime', monospace;
+  font-size: 0.68rem;
+  opacity: 0.65;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.food-log-delete {
+  background: none;
+  border: 1.5px solid var(--brown);
+  color: var(--red);
+  font-size: 0.65rem;
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  line-height: 1;
+  padding: 0;
+  transition: background 0.1s;
+}
+
+.food-log-delete:hover {
+  background: var(--red);
+  color: var(--cream);
+}
+
+/* ════════════════════════════════
+   FOOD FORM
+════════════════════════════════ */
+.food-form-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-top: 0.25rem;
+}
+
+.food-add-btn {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.42rem;
+  letter-spacing: 0.1em;
+  background: var(--green);
+  color: var(--cream);
+  border: 2px solid var(--brown);
+  padding: 0.55rem 0.9rem;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.1s, box-shadow 0.1s;
+  align-self: flex-start;
+}
+
+.food-add-btn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--brown);
+}
+
+.food-form {
+  display: none;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.85rem;
+  background: var(--cream2);
+  border: 2px solid var(--brown);
+  border-top: none;
+  box-shadow: var(--shadow-sm);
+}
+
+.food-form.food-form-open {
+  display: flex;
+}
+
+.food-form-title {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.4rem;
+  letter-spacing: 0.12em;
+  color: var(--brown);
+  opacity: 0.65;
+}
+
+.food-input {
+  font-family: 'Courier Prime', monospace;
+  font-size: 0.85rem;
+  background: var(--cream);
+  border: 2px solid var(--brown);
+  color: var(--brown);
+  padding: 0.45rem 0.6rem;
+  outline: none;
+  width: 100%;
+  transition: box-shadow 0.1s;
+}
+
+.food-input:focus {
+  box-shadow: 0 0 0 2px var(--gold);
+}
+
+.food-input::placeholder { opacity: 0.45; }
+
+.food-input-wide { width: 100%; }
+
+.food-input-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+}
+
+.food-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.food-input-label {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.33rem;
+  letter-spacing: 0.08em;
+  opacity: 0.6;
+}
+
+.food-submit-btn {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.42rem;
+  letter-spacing: 0.08em;
+  background: var(--brown);
+  color: var(--gold);
+  border: 2px solid var(--brown);
+  padding: 0.55rem 0.9rem;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  align-self: flex-start;
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+
+.food-submit-btn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--brown);
 }
 
 /* ════════════════════════════════
@@ -671,6 +995,15 @@ body::before {
 
   .macro-total-item {
     flex: 0 0 calc(50% - 0.25rem);
+  }
+
+  .food-input-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .set-pip {
+    width: 20px;
+    height: 12px;
   }
 }
 
