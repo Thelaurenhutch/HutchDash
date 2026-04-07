@@ -810,18 +810,20 @@ function renderPlanModalDay(day) {
   if (!bodyEl) return;
 
   // Preserve paste panel open/close state across day switches
-  const pasteWasOpen = bodyEl.querySelector('.paste-panel')?.classList.contains('paste-panel-open');
+  const pasteWasOpen = bodyEl.querySelector('.paste-panel')?.classList.contains('paste-panel-open') ?? true;
 
   bodyEl.innerHTML = `
     <div class="paste-toggle-row">
-      <button class="paste-toggle-btn" onclick="togglePastePanel()"
+      <button class="paste-toggle-btn${pasteWasOpen ? ' paste-toggle-btn-active' : ''}" onclick="togglePastePanel()"
               id="pastePanelToggle">📋 PASTE ROUTINE</button>
     </div>
     <div class="paste-panel${pasteWasOpen ? ' paste-panel-open' : ''}" id="pastePanel">
-      <p class="paste-hint">Paste your full weekly routine below — works with Claude's format.<br>
-        <span class="paste-hint-ex">Monday – Push + Core<br>DB push press&nbsp;&nbsp;3 × 10<br>Band lateral raise&nbsp;&nbsp;3 × 15<br>Tuesday or Wednesday – Lower Body…</span>
-      </p>
-      <textarea class="paste-textarea" id="pasteTextarea" placeholder="Paste routine here…" rows="9"></textarea>
+      <p class="paste-hint">Copy your routine from Claude, then click <b>PASTE FROM CLIPBOARD</b> below — or just click in the box and press <b>Cmd+V</b>.</p>
+      <div class="paste-clip-row">
+        <button class="paste-clip-btn" onclick="pasteFromClipboard()">📋 PASTE FROM CLIPBOARD</button>
+        <button class="paste-clear-btn" onclick="document.getElementById('pasteTextarea').value='';document.getElementById('pasteStatus').textContent=''">✕ CLEAR</button>
+      </div>
+      <textarea class="paste-textarea" id="pasteTextarea" placeholder="Paste your Claude routine here (Cmd+V)…" rows="8"></textarea>
       <div class="paste-action-row">
         <button class="paste-import-btn" onclick="parseAndImportRoutine()">⚡ PARSE &amp; IMPORT ALL DAYS</button>
         <span class="paste-status" id="pasteStatus"></span>
@@ -847,6 +849,26 @@ function togglePastePanel() {
   const open = panel.classList.toggle('paste-panel-open');
   if (btn) btn.classList.toggle('paste-toggle-btn-active', open);
   if (open) document.getElementById('pasteTextarea')?.focus();
+}
+
+async function pasteFromClipboard() {
+  const ta = document.getElementById('pasteTextarea');
+  const statusEl = document.getElementById('pasteStatus');
+  try {
+    const text = await navigator.clipboard.readText();
+    if (!text.trim()) {
+      if (statusEl) { statusEl.textContent = '⚠ Clipboard is empty.'; statusEl.className = 'paste-status paste-status-err'; }
+      return;
+    }
+    ta.value = text;
+    ta.focus();
+    if (statusEl) { statusEl.textContent = '✓ Pasted! Hit PARSE & IMPORT.'; statusEl.className = 'paste-status paste-status-ok'; }
+  } catch(e) {
+    // Clipboard API blocked — focus the textarea so user can Cmd+V manually
+    ta.focus();
+    ta.select();
+    if (statusEl) { statusEl.textContent = '⚠ Click the box & press Cmd+V'; statusEl.className = 'paste-status paste-status-err'; }
+  }
 }
 
 // ── Parse a pasted multi-day routine and import all days ──
