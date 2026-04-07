@@ -470,13 +470,19 @@ function onFoodSearchInput(val) {
 async function searchUSDA(query) {
   const dd = document.getElementById('foodDropdown');
   try {
-    const resp = await fetch(`${USDA_SEARCH}?query=${encodeURIComponent(query)}&pageSize=8&dataType=Survey%20(FNDDS),SR%20Legacy,Foundation&api_key=${USDA_KEY}`);
+    const url = new URL(USDA_SEARCH);
+    url.searchParams.set('query', query);
+    url.searchParams.set('pageSize', '10');
+    url.searchParams.set('api_key', USDA_KEY);
+    const resp = await fetch(url.toString());
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const data = await resp.json();
     _dropdownItems = data.foods || [];
     _dropdownIdx   = -1;
     renderDropdown(_dropdownItems);
   } catch(e) {
-    if (dd) dd.innerHTML = '<div class="food-dd-loading">Search failed. Try again.</div>';
+    console.error('[USDA] search error:', e);
+    if (dd) { dd.innerHTML = '<div class="food-dd-loading">Search failed. Try again.</div>'; dd.style.display = 'block'; }
   }
 }
 
