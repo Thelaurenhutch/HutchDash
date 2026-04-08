@@ -98,7 +98,7 @@ WORKOUT_LABELS = {
     "Sun": "REST",
 }
 
-def get_workout() -> dict | None:
+def get_workout():
     try:
         snap = db.collection("users").stream()
         for user_doc in snap:

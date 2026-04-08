@@ -32,13 +32,14 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt
 
-      # ── 4. Run the data generator ──
+      # ── 4. Write Firebase service account key from secret ──
+      - name: Write Firebase service account
+        run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}' > hutchdash-service-account.json
+
+      # ── 5. Run the data generator ──
       - name: Generate dashboard data
         env:
-          NOTION_TOKEN:        ${{ secrets.NOTION_TOKEN }}
-          TODOS_DB:            ${{ secrets.TODOS_DB }}
-          WORKOUT_DB:          ${{ secrets.WORKOUT_DB }}
-          MACROS_DB:           ${{ secrets.MACROS_DB }}
+          FIREBASE_SERVICE_ACCOUNT: hutchdash-service-account.json
           # Macro goals (optional — defaults to 2000/150/200/65)
           GOAL_CALORIES:       ${{ secrets.GOAL_CALORIES }}
           GOAL_PROTEIN:        ${{ secrets.GOAL_PROTEIN }}
@@ -46,14 +47,14 @@ jobs:
           GOAL_FAT:            ${{ secrets.GOAL_FAT }}
           # Outlook ICS (no app registration needed)
           OUTLOOK_ICS_URL:     ${{ secrets.OUTLOOK_ICS_URL }}
-          TZ:                  America/Chicago
+          TZ:                  America/New_York
           # Apple CalDAV (optional)
           APPLE_CALDAV_URL:    ${{ secrets.APPLE_CALDAV_URL }}
           APPLE_USERNAME:      ${{ secrets.APPLE_USERNAME }}
           APPLE_PASSWORD:      ${{ secrets.APPLE_PASSWORD }}
         run: python generate_data.py
 
-      # ── 5. Commit updated data.json back to the repo ──
+      # ── 6. Commit updated data.json back to the repo ──
       - name: Commit and push data.json
         run: |
           git config user.name  "github-actions[bot]"
